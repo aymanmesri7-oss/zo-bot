@@ -97,107 +97,50 @@ const QUOTES = [
   { text: "Chaque clic, c'est un billet de plus dans ta poche.", author: "Zoé 💖" },
 ];
 
-// GIFs par palier — progression visuelle du hustle au cosmique
+// GIFs par palier — fichiers locaux dans ./gifs/
+const GIF_DIR = path.join(__dirname, 'gifs');
+
 const TIER_GIFS = {
-  // 5-20: Hustle / Motivation / Money rain
+  // 5-20: Hustle / Money
   hustle: [
-    'https://media1.tenor.com/m/BJ4GvqXaTgkAAAAd/if-you-want-something-go-get-it.gif',
-    'https://media1.tenor.com/m/9ON4m5fnafAAAAAd/will-smith-pursuit-of-happiness.gif',
-    'https://media1.tenor.com/m/vIGbTay_DwsAAAAC/limitless-bradley-cooper.gif',
-    'https://media1.tenor.com/m/CJHh0mRjSWAAAAAd/making-it-rain.gif',
-    'https://media1.tenor.com/m/PI_PlTRIHbIAAAAC/money-rain.gif',
-    'https://media1.tenor.com/m/HRf1x2we-bMAAAAd/conor-mc-gregor-make-it-rain.gif',
-    'https://media1.tenor.com/m/22g0aVucyBQAAAAC/money-clap.gif',
+    'money.gif', 'money-1.gif', 'franklin-saint.gif', 'franklin-saint-walking-franklin-saint.gif',
+    'made-by-auf.gif', 'mrlinemoverrr.gif', 'ad-laurent.gif',
   ],
-  // 25-50: Mafia / Crime lords — Scarface, Narcos, Peaky Blinders, Godfather
+  // 25-50: Mafia / Boss / Gangster
   mafia: [
-    'https://media1.tenor.com/m/GCjdDuPUgHEAAAAC/ejemplo-tony-montana.gif',
-    'https://media1.tenor.com/m/PEHFWDFMqfMAAAAd/scarface-tony-montana.gif',
-    'https://media1.tenor.com/m/WLqvlNhtZLkAAAAC/the-world-is-yours.gif',
-    'https://media1.tenor.com/m/5EC5TcYYVSgAAAAd/scarface-push-it-to-the-limit.gif',
-    'https://media1.tenor.com/m/SuM-24RMfuIAAAAd/narcos-pablo-escobar.gif',
-    'https://media1.tenor.com/m/De_Pb3eDYWsAAAAd/pablo-escobar-el-patron-del-mal.gif',
-    'https://media1.tenor.com/m/tQPOoX-6m2EAAAAd/peaky-blinders-tommy-shelby.gif',
-    'https://media1.tenor.com/m/N0TwhvG3oooAAAAC/tommy-walking-pathos.gif',
-    'https://media1.tenor.com/m/Ezwsc3bTZAgAAAAd/the-god-father-marlon-brando.gif',
-    'https://media1.tenor.com/m/kuTsm-WrB6IAAAAd/godfather-al-pacino.gif',
-    'https://media1.tenor.com/m/Isom2mRDxiEAAAAd/snowfall-franklin-saint.gif',
-    'https://media1.tenor.com/m/XRNLPSoK36UAAAAC/franklin-saint-snowfall-fx.gif',
-    'https://media1.tenor.com/m/AwxyG8UX888AAAAd/snowfall-franklin-saint.gif',
+    'mafia-boss.gif', 'leo-angry-wolf.gif', 'oppenheimer-oppenheimer-movie.gif',
+    'war-dogs-war-dogs-movie.gif', 'war-dogs-war-dogs-movie-1.gif', 'war-dogs-war-dogs-movie-2.gif',
+    'efraim-war-dogs.gif', 'gngsta.gif', 'pablo-vibes.gif', 'keyvon-crawford-kilo-tray-ballas.gif',
+    'cj-cj-gta.gif', 'gta-grand-theft-auto.gif', 'di-caprio-moi.gif', 'leonardo-dicaprio-laughing.gif',
   ],
-  // 75: Luxury / Empire — Gatsby, diamonds, cash stacks
+  // 75: Empire / Luxe / Succès
   empire: [
-    'https://media1.tenor.com/m/dPr-cyqVV-0AAAAd/the-great-gatsby-gatsby.gif',
-    'https://media1.tenor.com/m/_FZS_MaZtawAAAAC/champagne-fireworks.gif',
-    'https://media1.tenor.com/m/4xaiRq6ewpoAAAAd/gold-gold-block.gif',
-    'https://media1.tenor.com/m/lz980FuTggkAAAAd/luxury-luxurious.gif',
-    'https://media1.tenor.com/m/eWPLhr-5qlEAAAAd/diamond.gif',
-    'https://media1.tenor.com/m/ryEwfiqTw1gAAAAd/swimming-in-money-rich.gif',
-    'https://media1.tenor.com/m/dCPsJw7KS-4AAAAd/breaking-bad-money.gif',
-    'https://media1.tenor.com/m/muHtuNMSM6YAAAAd/money-breakingbad.gif',
+    'd9luxe.gif', 'd9luxe-1.gif', 'd9luxe-2.gif', 'd9luxe-3.gif',
+    'elon-musk-dance.gif', 'elon-musk-tesla.gif', 'elon-musk-this-is.gif', 'titanic-titanic-movie.gif',
   ],
-  // 100-150: Démons — dark anime, demon transformations
-  demon: [
-    'https://media1.tenor.com/m/BZzNGEieL64AAAAd/mad-anime.gif',
-    'https://media1.tenor.com/m/HMDqVdEoCE8AAAAC/anime-laugh.gif',
-    'https://media1.tenor.com/m/O96cfVPzH8UAAAAC/anos-voldigoad.gif',
-    'https://media1.tenor.com/m/rbZR6JMshRkAAAAC/anime-demon.gif',
-    'https://media1.tenor.com/m/pe-bfVm1Wz0AAAAC/mob-psycho100.gif',
+  // 100-225: Anime Power / Démons
+  power: [
+    'goku-mad.gif', 'gohan-beast-gohan.gif', 'goku-dragon-ball-z.gif',
+    'lf-ssjb-goku-grn-ssjb-goku.gif', 'naruto-naruto-uzumaki.gif', 'naruto.gif', 'dokkan-battle-top.gif',
   ],
-  // 175-225: Faucheurs / Ombres — grim reaper, Solo Leveling, shadows
-  reaper: [
-    'https://media1.tenor.com/m/Rz5gWyBiBGAAAAAd/death-grim-reaper.gif',
-    'https://media1.tenor.com/m/ylyR4yywcUoAAAAC/grim-reaper.gif',
-    'https://media1.tenor.com/m/OyqJheg3S50AAAAC/solo-leveling-sung-jin-woo.gif',
-    'https://media1.tenor.com/m/bh5K0pjItMIAAAAd/sung-jin-woo-solo-leveling.gif',
+  // Célébration — mixé dans tous les paliers
+  celebration: [
+    'dance.gif', 'cat-dance.gif', 'cat-cat-dance.gif', 'jiggy-kid-dancing.gif',
+    'mayombo-dancing.gif', 'mayombo-dancing-1.gif', 'mec-qui-danse-homme-danse.gif',
+    'dance-dance-dance-cute.gif', 'worm-bean-boy-benjamin-doing-the-worm-dance-dancing.gif',
+    'benin.gif', 'benin-benin-silent.gif', 'benin-football.gif', 'steve-mounié-mounie.gif',
+    'madagascar-madagascar-scream.gif', 'flag-national.gif',
+    'clapping.gif', 'great-thumbs-up.gif', 'dab-me-up-generation-dab.gif', 'dap-handshake.gif',
+    'one-piece-dab-me-up.gif', 'thats-it-yes-thats-it.gif', 'cool-fun.gif',
+    'cat-ai.gif', 'rio-scuba.gif', 'scuba-scuba-cat.gif', 'giggitygoooo.gif',
+    'made-by-aur.gif', 'sticker-fortiktok.gif', 'triplet-tung-tung-tung-sahur.gif',
+    'trash-vegan-comedy.gif', 'calculating-alan.gif', 'elon-musk-dance.gif',
   ],
-  // 250-325: Ténèbres / Satan / Lucifer
-  darkness: [
-    'https://media1.tenor.com/m/kRrBvZlfiKAAAAAd/lucifer-devil.gif',
-    'https://media1.tenor.com/m/tmXPqa9O_rkAAAAC/scarface-cold.gif',
-    'https://media1.tenor.com/m/yb9sH0P9l-kAAAAd/scarface-laughing.gif',
-    'https://media1.tenor.com/m/yh8dLeoNfR4AAAAd/peaky-blinders-cillian-murphy.gif',
-    'https://media1.tenor.com/m/oYw-P09Jv3cAAAAd/fire-power.gif',
-  ],
-  // 350-425: Titans — Attack on Titan, colossal power
-  titan: [
-    'https://media1.tenor.com/m/9NAODuyGFjUAAAAd/eren-eren-jaeger.gif',
-    'https://media1.tenor.com/m/EQ_3mJzYb88AAAAd/aot-attack-on-titan.gif',
-    'https://media1.tenor.com/m/Jbb95m3Lw00AAAAd/fire-breathing-dragon.gif',
-  ],
-  // 450-500: Dragons / Destruction de mondes
-  dragon: [
-    'https://media1.tenor.com/m/Jbb95m3Lw00AAAAd/fire-breathing-dragon.gif',
-    'https://media1.tenor.com/m/oYw-P09Jv3cAAAAd/fire-power.gif',
-    'https://media1.tenor.com/m/9n0weQuYRQ8AAAAd/explosion-dragon-ball.gif',
-    'https://media1.tenor.com/m/lNuVY-41uaoAAAAd/explosion-phenomenal.gif',
-  ],
-  // 525-575: Tueurs de Dieux — Kratos, God of War
-  godkiller: [
-    'https://media1.tenor.com/m/UzAofGiSosYAAAAC/kratos-god-of-war-rage.gif',
-    'https://media1.tenor.com/m/JUTW8y2fnfsAAAAd/god-of-war-god-of-war-3.gif',
-    'https://media1.tenor.com/m/6uptsB_3FYAAAAAd/hakai-lord.gif',
-  ],
-  // 600-725: Dieux — Beerus, divine power, supreme
-  god: [
-    'https://media1.tenor.com/m/6uptsB_3FYAAAAAd/hakai-lord.gif',
-    'https://media1.tenor.com/m/Py7KzBmxr7MAAAAC/beerus-destruction.gif',
-    'https://media1.tenor.com/m/W2NkuG9PKDcAAAAC/crown-the-king.gif',
-    'https://media1.tenor.com/m/8JRWLNed_6kAAAAd/nova-sam-alexander.gif',
-  ],
-  // 750-1000: Cosmique / Infini — explosions cosmiques, univers, absolu
-  cosmic: [
-    'https://media1.tenor.com/m/lNuVY-41uaoAAAAd/explosion-phenomenal.gif',
-    'https://media1.tenor.com/m/8JRWLNed_6kAAAAd/nova-sam-alexander.gif',
-    'https://media1.tenor.com/m/9n0weQuYRQ8AAAAd/explosion-dragon-ball.gif',
-    'https://media1.tenor.com/m/W2NkuG9PKDcAAAAC/crown-the-king.gif',
-  ],
-  // Top 3: Trône, couronne, puissance absolue
+  // Top 3: les plus gros GIFs
   top: [
-    'https://media1.tenor.com/m/W2NkuG9PKDcAAAAC/crown-the-king.gif',
-    'https://media1.tenor.com/m/6uptsB_3FYAAAAAd/hakai-lord.gif',
-    'https://media1.tenor.com/m/Py7KzBmxr7MAAAAC/beerus-destruction.gif',
-    'https://media1.tenor.com/m/lNuVY-41uaoAAAAd/explosion-phenomenal.gif',
+    'd9luxe-1.gif', 'goku-dragon-ball-z.gif', 'lf-ssjb-goku-grn-ssjb-goku.gif',
+    'dokkan-battle-top.gif', 'gohan-beast-gohan.gif', 'jiggy-kid-dancing.gif',
+    'mayombo-dancing.gif', 'elon-musk-tesla.gif',
   ],
 };
 
@@ -206,20 +149,16 @@ function randomQuote() {
   return QUOTES[Math.floor(Math.random() * QUOTES.length)];
 }
 function randomGif(clicks) {
+  // Pick from tier + celebration pool (50/50 chance)
   let tier;
   if (clicks == null)         tier = 'hustle';
   else if (clicks < 25)       tier = 'hustle';
   else if (clicks < 75)       tier = 'mafia';
   else if (clicks < 100)      tier = 'empire';
-  else if (clicks < 175)      tier = 'demon';
-  else if (clicks < 250)      tier = 'reaper';
-  else if (clicks < 350)      tier = 'darkness';
-  else if (clicks < 450)      tier = 'titan';
-  else if (clicks < 525)      tier = 'dragon';
-  else if (clicks < 600)      tier = 'godkiller';
-  else if (clicks < 750)      tier = 'god';
-  else                        tier = 'cosmic';
-  const pool = TIER_GIFS[tier];
+  else                        tier = 'power';
+  // 50% chance to use celebration GIF instead
+  const useCelebration = Math.random() < 0.5;
+  const pool = useCelebration ? TIER_GIFS.celebration : TIER_GIFS[tier];
   return pool[Math.floor(Math.random() * pool.length)];
 }
 function randomGifTop() {
@@ -227,15 +166,17 @@ function randomGifTop() {
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
-// Fetch a GIF URL → AttachmentBuilder (Discord bots can't embed Tenor URLs directly)
-async function fetchGifAttachment(url, name = 'promo.gif') {
+// Load a local GIF file → AttachmentBuilder
+function loadGifAttachment(filename, attachName = 'promo.gif') {
   try {
-    const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const buf = Buffer.from(await res.arrayBuffer());
-    return new AttachmentBuilder(buf, { name });
+    const filePath = path.join(GIF_DIR, filename);
+    if (!fs.existsSync(filePath)) {
+      console.error(`⚠️ GIF introuvable: ${filePath}`);
+      return null;
+    }
+    return new AttachmentBuilder(filePath, { name: attachName });
   } catch (e) {
-    console.error(`⚠️ GIF fetch failed (${url}):`, e.message);
+    console.error(`⚠️ GIF load failed (${filename}):`, e.message);
     return null;
   }
 }
@@ -601,18 +542,23 @@ async function updateRoles(guild, ranking) {
     if (previousRoleName !== targetRole.name) {
       console.log(`🎉 Promotion: ${va.name} → ${targetRole.name} (avant: ${previousRoleName || 'aucun'})`);
 
-      const gifUrl = randomGif(va.clicks);
-      const gifAttachment = await fetchGifAttachment(gifUrl);
+      const gifFile = randomGif(va.clicks);
+      const gifAttachment = loadGifAttachment(gifFile);
 
       // ─── Annonce dans #discussion ───
       if (announceChannel) {
         const quote = randomQuote();
         const promoEmbed = new EmbedBuilder()
-          .setTitle('🎉 PROMOTION ! 🎉')
+          .setTitle('🔥🔥🔥  PROMOTION  🔥🔥🔥')
           .setDescription(
-            `💰 ${member} est maintenant **${targetRole.name}** ! (**${va.clicks}+** clics)\n\n` +
+            `# 💰💰💰\n\n` +
+            `${member} EST MAINTENANT\n\n` +
+            `## ✨ ${targetRole.name.toUpperCase()} ✨\n\n` +
+            `**${va.clicks}+ CLICS** 🏆🏆🏆\n\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━\n\n` +
             `> 💬 *"${quote.text}"*\n> — ${quote.author}\n\n` +
-            `🔥 Qui sera le prochain à monter dans l'empire ?`
+            `━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+            `🔥🔥 QUI SERA LE PROCHAIN À MONTER DANS L'EMPIRE ? 🔥🔥`
           )
           .setColor(targetRole.color)
           .setTimestamp();
@@ -632,11 +578,11 @@ async function updateRoles(guild, ranking) {
 
       // ─── Message perso dans le salon du VA ───
       const PERSO_MESSAGES = [
-        `Yo ${member}, t'as grind comme un vrai et ça paye ! Tu es maintenant **${targetRole.name}** 🔥\nContinue comme ça, le sommet t'attend !`,
-        `${member} 👑 Tu es maintenant **${targetRole.name}** !\nT'es en train de construire ton empire, lâche rien !`,
-        `Big up ${member} ! Tu es maintenant **${targetRole.name}** 💰\nLes vrais reconnaissent les vrais. Continue le grind !`,
-        `${member}, tu es maintenant **${targetRole.name}** avec **${va.clicks}** clics 🚀\nT'es pas là pour rigoler, ça se voit !`,
-        `Ça monte, ça monte ! ${member} tu es maintenant **${targetRole.name}** 😈\nLe grind paie toujours. Prochain niveau en approche !`,
+        `# 🔥🔥🔥\n\nYO ${member} !!!\n\nT'AS GRIND COMME UN VRAI ET ÇA PAYE !\n\n✨ **${targetRole.name.toUpperCase()}** ✨\n\n💪💪 CONTINUE COMME ÇA, LE SOMMET T'ATTEND !`,
+        `# 👑👑👑\n\n${member} !!!\n\nTU ES MAINTENANT\n\n✨ **${targetRole.name.toUpperCase()}** ✨\n\n🔥 T'ES EN TRAIN DE CONSTRUIRE TON EMPIRE, LÂCHE RIEN !`,
+        `# 💰💰💰\n\nBIG UP ${member} !!!\n\nTU ES MAINTENANT\n\n✨ **${targetRole.name.toUpperCase()}** ✨\n\n🏆 LES VRAIS RECONNAISSENT LES VRAIS. CONTINUE LE GRIND !`,
+        `# 🚀🚀🚀\n\n${member} !!!\n\nTU ES MAINTENANT **${targetRole.name.toUpperCase()}** AVEC **${va.clicks} CLICS** !\n\n😤😤 T'ES PAS LÀ POUR RIGOLER, ÇA SE VOIT !`,
+        `# 😈😈😈\n\nÇA MONTE, ÇA MONTE !\n\n${member} TU ES MAINTENANT\n\n✨ **${targetRole.name.toUpperCase()}** ✨\n\n💎 LE GRIND PAIE TOUJOURS. PROCHAIN NIVEAU EN APPROCHE !`,
       ];
       const persoMsg = PERSO_MESSAGES[Math.floor(Math.random() * PERSO_MESSAGES.length)];
       const persoQuote = randomQuote();
@@ -655,12 +601,12 @@ async function updateRoles(guild, ranking) {
 
       if (persoChannel) {
         const persoEmbed = new EmbedBuilder()
-          .setTitle('⬆️ Tu as monté de rang !')
-          .setDescription(persoMsg + `\n\n> 💬 *"${persoQuote.text}"* — ${persoQuote.author}`)
+          .setTitle('⬆️⬆️⬆️  TU AS MONTÉ DE RANG  ⬆️⬆️⬆️')
+          .setDescription(persoMsg + `\n\n━━━━━━━━━━━━━━━━━━━━━━\n\n> 💬 *"${persoQuote.text}"* — ${persoQuote.author}`)
           .setColor(targetRole.color)
           .setTimestamp();
-        // Re-fetch GIF for perso channel (attachment is consumed after first send)
-        const persoGif = await fetchGifAttachment(gifUrl, 'promo.gif');
+        // Re-load GIF for perso channel (attachment is consumed after first send)
+        const persoGif = loadGifAttachment(gifFile, 'promo.gif');
         if (persoGif) persoEmbed.setImage('attachment://promo.gif');
 
         try {
@@ -700,17 +646,21 @@ async function updateRoles(guild, ranking) {
         // Annonce spéciale quand quelqu'un prend la tête (#1)
         if (top.rank === 1 && previousTop1 !== va.name && announceChannel) {
           const top1Embed = new EmbedBuilder()
-            .setTitle('👑 NOUVEAU NUMÉRO 1 ! 👑')
+            .setTitle('👑👑👑  NOUVEAU NUMÉRO 1  👑👑👑')
             .setDescription(
-              `🔥 ${member} prend la **PREMIÈRE PLACE** avec **${va.clicks}** clics !\n\n` +
-              `C'est le nouveau **${top.name}** du serveur !\n\n` +
-              `💪 Qui va le détrôner ? Le grind continue...`
+              `# 🏆🏆🏆\n\n` +
+              `🔥🔥 ${member} PREND LA\n\n` +
+              `## ✨ PREMIÈRE PLACE ✨\n\n` +
+              `AVEC **${va.clicks} CLICS** !!!\n\n` +
+              `C'EST LE NOUVEAU **${top.name.toUpperCase()}** DU SERVEUR !\n\n` +
+              `━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+              `💪💪 QUI VA LE DÉTRÔNER ? LE GRIND CONTINUE... 💪💪`
             )
             .setColor(0xFFD700)
             .setTimestamp();
 
           try {
-            const top1Gif = await fetchGifAttachment(randomGifTop(), 'top1.gif');
+            const top1Gif = loadGifAttachment(randomGifTop(), 'top1.gif');
             if (top1Gif) top1Embed.setImage('attachment://top1.gif');
             const top1Opts = { embeds: [top1Embed] };
             if (top1Gif) top1Opts.files = [top1Gif];
