@@ -288,14 +288,8 @@ async function fetchAllLinks() {
 }
 
 async function fetchMetrics() {
-  // Toujours les 7 derniers jours
-  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-  const params = {
-    sort: '-button_clicks',
-    limit: 100,
-    start_date: sevenDaysAgo,
-    end_date: new Date().toISOString(),
-  };
+  // allTime — c'est le boss qui décide quand on reset
+  const params = { sort: '-button_clicks', limit: 100, timeframe: 'allTime' };
 
   const metrics = [];
   let cursor = undefined;
@@ -309,8 +303,39 @@ async function fetchMetrics() {
   return metrics;
 }
 
+// Fetch métriques récentes (pour les VAs avec date de début spéciale)
+async function fetchRecentMetrics() {
+  // Trouver la date la plus ancienne parmi les VA_START_DATES
+  const dates = Object.values(VA_START_DATES);
+  if (dates.length === 0) return [];
+  const earliest = dates.sort()[0];
+  const params = {
+    sort: '-button_clicks',
+    limit: 100,
+    start_date: earliest,
+    end_date: new Date().toISOString(),
+  };
+  const metrics = [];
+  let cursor = undefined;
+  do {
+    const p = { ...params };
+    if (cursor) p.cursor = cursor;
+    const res = await gmsRequest('analytics/links', p);
+    metrics.push(...res.data);
+    cursor = res.has_more ? res.next_cursor : undefined;
+  } while (cursor);
+  return metrics;
+}
+
+// VAs dont on ignore les clics avant une certaine date
+// mampionona : on compte seulement à partir du 18 oct 2026
+const VA_START_DATES = {
+  'mampionona1993': '2026-10-18T00:00:00Z',
+};
+
 // Agréger clics par VA (display_name)
-function aggregateByVA(links, metrics) {
+// Pour les VAs dans VA_START_DATES, on utilise recentMetrics (requête séparée)
+function aggregateByVA(links, metrics, recentMetrics) {
   // Map link_id → display_name
   const linkToVA = {};
   for (const link of links) {
@@ -319,10 +344,23 @@ function aggregateByVA(links, metrics) {
 
   // Aggregate button_clicks by VA
   const vaClicks = {};
+  const restrictedVAs = new Set(Object.keys(VA_START_DATES));
+
   for (const m of metrics) {
     const va = linkToVA[m.key];
     if (!va) continue;
+    // Skip restricted VAs in allTime metrics — they use recentMetrics
+    if (restrictedVAs.has(va)) continue;
     vaClicks[va] = (vaClicks[va] || 0) + (m.button_clicks || 0);
+  }
+
+  // Add restricted VAs from recentMetrics
+  if (recentMetrics) {
+    for (const m of recentMetrics) {
+      const va = linkToVA[m.key];
+      if (!va || !restrictedVAs.has(va)) continue;
+      vaClicks[va] = (vaClicks[va] || 0) + (m.button_clicks || 0);
+    }
   }
 
   // Sort descending
@@ -392,7 +430,7 @@ function buildLeaderboardEmbeds(ranking) {
 
   embed.addFields({
     name: '📅 Période',
-    value: '🔄 **7 derniers jours**',
+    value: '♾️ **Depuis le début**',
     inline: true,
   });
 
@@ -672,7 +710,8 @@ async function updateLeaderboard() {
     // Fetch fresh data from GMS
     cachedLinks = await fetchAllLinks();
     const metrics = await fetchMetrics();
-    cachedRanking = aggregateByVA(cachedLinks, metrics);
+    const recentMetrics = await fetchRecentMetrics();
+    cachedRanking = aggregateByVA(cachedLinks, metrics, recentMetrics);
 
     console.log(`📊 ${cachedRanking.length} VAs trouvés, top: ${cachedRanking[0]?.name} (${cachedRanking[0]?.clicks} clics)`);
 
@@ -897,7 +936,8 @@ client.on('interactionCreate', async (interaction) => {
       // Fetch fresh data
       cachedLinks = await fetchAllLinks();
       const metrics = await fetchMetrics();
-      cachedRanking = aggregateByVA(cachedLinks, metrics);
+      const recentMetrics = await fetchRecentMetrics();
+      cachedRanking = aggregateByVA(cachedLinks, metrics, recentMetrics);
 
       const embeds = buildLeaderboardEmbeds(cachedRanking);
       // Send in the channel where the command was used
