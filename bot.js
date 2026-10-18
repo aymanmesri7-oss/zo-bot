@@ -587,23 +587,31 @@ async function updateRoles(guild, ranking) {
     }
 
     // Announce promotion if role changed (séparé de l'assignation)
-    if (previousRoleName !== targetRole.name && announceChannel) {
-      const quote = randomQuote();
-      const promoEmbed = new EmbedBuilder()
-        .setTitle('🎉 PROMOTION ! 🎉')
-        .setDescription(
-          `💰 ${member} est maintenant **${targetRole.name}** ! (**${va.clicks}+** clics)\n\n` +
-          `> 💬 *"${quote.text}"*\n> — ${quote.author}\n\n` +
-          `🔥 Qui sera le prochain à monter dans l'empire ?`
-        )
-        .setColor(targetRole.color)
-        .setImage(randomGif(va.clicks))
-        .setTimestamp();
+    if (previousRoleName !== targetRole.name) {
+      console.log(`🎉 Promotion: ${va.name} → ${targetRole.name} (avant: ${previousRoleName || 'aucun'})`);
 
-      try {
-        await announceChannel.send({ embeds: [promoEmbed] });
-      } catch (e) {
-        console.error('Erreur envoi annonce:', e.message);
+      // ─── Annonce dans #discussion ───
+      if (announceChannel) {
+        const quote = randomQuote();
+        const promoEmbed = new EmbedBuilder()
+          .setTitle('🎉 PROMOTION ! 🎉')
+          .setDescription(
+            `💰 ${member} est maintenant **${targetRole.name}** ! (**${va.clicks}+** clics)\n\n` +
+            `> 💬 *"${quote.text}"*\n> — ${quote.author}\n\n` +
+            `🔥 Qui sera le prochain à monter dans l'empire ?`
+          )
+          .setColor(targetRole.color)
+          .setImage(randomGif(va.clicks))
+          .setTimestamp();
+
+        try {
+          await announceChannel.send({ embeds: [promoEmbed] });
+          console.log(`✅ Annonce envoyée dans #${announceChannel.name}`);
+        } catch (e) {
+          console.error('❌ Erreur envoi annonce:', e.message);
+        }
+      } else {
+        console.error(`❌ Salon annonce introuvable (ID: ${ANNOUNCEMENT_CHANNEL_ID})`);
       }
 
       // ─── Message perso dans le salon du VA ───
@@ -635,9 +643,12 @@ async function updateRoles(guild, ranking) {
 
         try {
           await persoChannel.send({ embeds: [persoEmbed] });
+          console.log(`✅ Message perso envoyé dans #${persoChannel.name}`);
         } catch (e) {
-          console.error(`Erreur envoi salon perso ${persoChannel.name}:`, e.message);
+          console.error(`❌ Erreur envoi salon perso ${persoChannel.name}:`, e.message);
         }
+      } else {
+        console.log(`⚠️ Salon perso non trouvé pour ${va.name} (cherché: -${username}-, -${username}, ${username})`);
       }
     }
 
