@@ -691,10 +691,14 @@ async function updateLeaderboard() {
       return;
     }
 
-    // Update leaderboard channel
-    const lbChannel = guild.channels.cache.get(LEADERBOARD_CHANNEL_ID);
+    // Update leaderboard channel — use saved channel from /setupleaderboard, fallback to config
+    const lbChannelId = data.leaderboardChannelId || LEADERBOARD_CHANNEL_ID;
+    let lbChannel = guild.channels.cache.get(lbChannelId);
+    if (!lbChannel) {
+      try { lbChannel = await guild.channels.fetch(lbChannelId); } catch {}
+    }
     if (lbChannel) {
-      console.log(`📋 Mise à jour leaderboard dans #${lbChannel.name} (${LEADERBOARD_CHANNEL_ID})`);
+      console.log(`📋 Mise à jour leaderboard dans #${lbChannel.name} (${lbChannelId})`);
       const embeds = buildLeaderboardEmbeds(cachedRanking);
 
       let sent = false;
@@ -720,7 +724,7 @@ async function updateLeaderboard() {
         }
       }
     } else {
-      console.error(`❌ Salon leaderboard introuvable: ${LEADERBOARD_CHANNEL_ID}`);
+      console.log(`⏳ Leaderboard pas encore configuré — utilise /setupleaderboard dans un salon`);
     }
 
     // Update roles
@@ -895,7 +899,7 @@ client.on('interactionCreate', async (interaction) => {
     return;
   }
 
-  // /setupleaderboard (admin only) — force install leaderboard panel
+  // /setupleaderboard (admin only) — install leaderboard panel in THIS channel
   if (interaction.commandName === 'setupleaderboard') {
     await interaction.deferReply({ ephemeral: true });
     try {
@@ -904,41 +908,17 @@ client.on('interactionCreate', async (interaction) => {
       const metrics = await fetchMetrics(loadData().resetDate);
       cachedRanking = aggregateByVA(cachedLinks, metrics);
 
-      const lbChannel = interaction.guild.channels.cache.get(LEADERBOARD_CHANNEL_ID);
-      if (!lbChannel) {
-        // Try fetching it directly
-        try {
-          const fetched = await interaction.guild.channels.fetch(LEADERBOARD_CHANNEL_ID);
-          if (!fetched) {
-            await interaction.editReply({ content: `❌ Salon introuvable (ID: ${LEADERBOARD_CHANNEL_ID}). Vérifie l'ID.` });
-            return;
-          }
-          // Use fetched channel
-          const embeds = buildLeaderboardEmbeds(cachedRanking);
-          const msg = await fetched.send({ embeds });
-          const data = loadData();
-          data.leaderboardMessageId = msg.id;
-          saveData(data);
-          await interaction.editReply({ content: '✅ Panneau leaderboard installé !' });
-        } catch (fetchErr) {
-          await interaction.editReply({ content: `❌ Impossible d'accéder au salon: ${fetchErr.message}` });
-        }
-        return;
-      }
-
       const embeds = buildLeaderboardEmbeds(cachedRanking);
-      // Delete old message if exists
+      // Send in the channel where the command was used
+      const msg = await interaction.channel.send({ embeds });
+
+      // Save this channel as the new leaderboard channel + message ID
       const data = loadData();
-      if (data.leaderboardMessageId) {
-        try {
-          const oldMsg = await lbChannel.messages.fetch(data.leaderboardMessageId);
-          await oldMsg.delete();
-        } catch {} // ignore if already gone
-      }
-      const msg = await lbChannel.send({ embeds });
       data.leaderboardMessageId = msg.id;
+      data.leaderboardChannelId = interaction.channel.id;
       saveData(data);
-      await interaction.editReply({ content: '✅ Panneau leaderboard installé !' });
+
+      await interaction.editReply({ content: '✅ Panneau leaderboard installé dans ce salon !' });
     } catch (err) {
       console.error('❌ setupleaderboard error:', err);
       await interaction.editReply({ content: `❌ Erreur: ${err.message}` });
