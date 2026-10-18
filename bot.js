@@ -231,7 +231,7 @@ function loadData() {
   try {
     return JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
   } catch {
-    return { resetDate: null, leaderboardMessageId: null, clicksMessageId: null, roleCache: {} };
+    return { resetDate: null, leaderboardMessageId: null, clicksMessageId: null, roleCache: {}, top1VA: null };
   }
 }
 
@@ -403,7 +403,6 @@ function buildLeaderboardEmbeds(ranking) {
   // Second embed with motivation
   const motivEmbed = new EmbedBuilder()
     .setColor(0xFF4500)
-    .setImage(randomGif())
     .setDescription('> 💰 **Chaque clic, c\'est un billet de plus. Chaque effort te rapproche du trône.**\n> *Les vrais patrons n\'abandonnent jamais !*');
 
   return [embed, motivEmbed];
@@ -473,7 +472,6 @@ function buildStatsEmbed(username, ranking) {
     .setDescription(desc)
     .setColor(currentRole?.color || 0x5865F2)
     .setFooter({ text: `💬 "${quote.text}" — ${quote.author}` })
-    .setThumbnail(randomGif(va.clicks))
     .setTimestamp();
 
   return embed;
@@ -590,6 +588,8 @@ async function updateRoles(guild, ranking) {
     if (previousRoleName !== targetRole.name) {
       console.log(`🎉 Promotion: ${va.name} → ${targetRole.name} (avant: ${previousRoleName || 'aucun'})`);
 
+      const gifUrl = randomGif(va.clicks);
+
       // ─── Annonce dans #discussion ───
       if (announceChannel) {
         const quote = randomQuote();
@@ -601,11 +601,10 @@ async function updateRoles(guild, ranking) {
             `🔥 Qui sera le prochain à monter dans l'empire ?`
           )
           .setColor(targetRole.color)
-          .setImage(randomGif(va.clicks))
           .setTimestamp();
 
         try {
-          await announceChannel.send({ embeds: [promoEmbed] });
+          await announceChannel.send({ content: gifUrl, embeds: [promoEmbed] });
           console.log(`✅ Annonce envoyée dans #${announceChannel.name}`);
         } catch (e) {
           console.error('❌ Erreur envoi annonce:', e.message);
@@ -625,30 +624,40 @@ async function updateRoles(guild, ranking) {
       const persoMsg = PERSO_MESSAGES[Math.floor(Math.random() * PERSO_MESSAGES.length)];
       const persoQuote = randomQuote();
 
-      // Chercher le salon perso du VA (format: -username ou -username-)
-      const username = va.name.toLowerCase();
-      const persoChannel = guild.channels.cache.find(ch =>
-        ch.name === `-${username}` ||
-        ch.name === `-${username}-` ||
-        ch.name === username
-      );
+      // Chercher le salon perso du VA — matching flexible
+      const username = va.name.toLowerCase().replace(/[^a-z0-9_]/g, '');
+      console.log(`🔍 Recherche salon perso pour "${va.name}" → normalized: "${username}"`);
+      const persoChannel = guild.channels.cache.find(ch => {
+        const chName = ch.name.toLowerCase();
+        return chName === `-${username}-` ||
+               chName === `-${username}` ||
+               chName === username ||
+               chName === `${username}-` ||
+               chName.includes(username);
+      });
 
       if (persoChannel) {
         const persoEmbed = new EmbedBuilder()
           .setTitle('⬆️ Tu as monté de rang !')
           .setDescription(persoMsg + `\n\n> 💬 *"${persoQuote.text}"* — ${persoQuote.author}`)
           .setColor(targetRole.color)
-          .setImage(randomGif(va.clicks))
           .setTimestamp();
 
         try {
-          await persoChannel.send({ embeds: [persoEmbed] });
+          await persoChannel.send({ content: gifUrl, embeds: [persoEmbed] });
           console.log(`✅ Message perso envoyé dans #${persoChannel.name}`);
         } catch (e) {
-          console.error(`❌ Erreur envoi salon perso ${persoChannel.name}:`, e.message);
+          console.error(`❌ Erreur envoi salon perso #${persoChannel.name}:`, e.message);
         }
       } else {
-        console.log(`⚠️ Salon perso non trouvé pour ${va.name} (cherché: -${username}-, -${username}, ${username})`);
+        // Log tous les noms de salons pour debug
+        const allChannels = guild.channels.cache
+          .filter(ch => ch.type === 0)
+          .map(ch => ch.name)
+          .filter(n => n.includes('-'))
+          .slice(0, 30);
+        console.log(`⚠️ Salon perso non trouvé pour "${va.name}" (cherché: -${username}-, -${username}, ${username})`);
+        console.log(`📋 Salons avec tiret: ${allChannels.join(', ')}`);
       }
     }
 
@@ -656,18 +665,37 @@ async function updateRoles(guild, ranking) {
     if (!data.roleCache) data.roleCache = {};
     data.roleCache[va.name] = targetRole.name;
 
-    // ─── Top 1/2/3 roles ───
+    // ─── Top 1/2/3 roles + annonce spéciale #1 ───
+    const previousTop1 = data.top1VA;
     for (const top of TOP_ROLES) {
       const topGuildRole = guildRoles.find(r => r.name === top.name);
       if (!topGuildRole) continue;
 
       if (i + 1 === top.rank) {
-        // This VA should have this top role
         if (!member.roles.cache.has(topGuildRole.id)) {
           try { await member.roles.add(topGuildRole); } catch {}
         }
+        // Annonce spéciale quand quelqu'un prend la tête (#1)
+        if (top.rank === 1 && previousTop1 !== va.name && announceChannel) {
+          const top1Embed = new EmbedBuilder()
+            .setTitle('👑 NOUVEAU NUMÉRO 1 ! 👑')
+            .setDescription(
+              `🔥 ${member} prend la **PREMIÈRE PLACE** avec **${va.clicks}** clics !\n\n` +
+              `C'est le nouveau **${top.name}** du serveur !\n\n` +
+              `💪 Qui va le détrôner ? Le grind continue...`
+            )
+            .setColor(0xFFD700)
+            .setTimestamp();
+
+          try {
+            await announceChannel.send({ content: randomGifTop(), embeds: [top1Embed] });
+            console.log(`👑 Annonce #1 envoyée pour ${va.name}`);
+          } catch (e) {
+            console.error('❌ Erreur annonce #1:', e.message);
+          }
+          data.top1VA = va.name;
+        }
       } else {
-        // Remove top role if they have it but shouldn't
         if (member.roles.cache.has(topGuildRole.id)) {
           try { await member.roles.remove(topGuildRole); } catch {}
         }
@@ -747,8 +775,7 @@ async function updateLeaderboard() {
             '> Clique sur le bouton ci-dessous pour voir tes stats personnelles !\n\n' +
             '> 🔢 **Total de clics** · 📈 **Moyenne/jour** · 🏅 **Ton rang** · 📍 **Ta position**'
           )
-          .setColor(0x5865F2)
-          .setImage(randomGif());
+          .setColor(0x5865F2);
 
         const row = new ActionRowBuilder().addComponents(
           new ButtonBuilder()
@@ -869,7 +896,6 @@ client.on('interactionCreate', async (interaction) => {
             `📅 Début : <t:${Math.floor(Date.now() / 1000)}:F>`
           )
           .setColor(0x2ECC71)
-          .setImage(randomGif())
       ]
     });
 
@@ -942,8 +968,7 @@ client.on('interactionCreate', async (interaction) => {
         '> 🔢 **Total de clics** · 📈 **Moyenne/jour** · 🏅 **Ton rang** · 📍 **Ta position**\n\n' +
         '> 💰 *Chaque clic te rapproche du trône !*'
       )
-      .setColor(0x5865F2)
-      .setImage(randomGif());
+      .setColor(0x5865F2);
 
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
