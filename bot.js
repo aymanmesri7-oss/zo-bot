@@ -81,15 +81,15 @@ const QUOTES = [
   { text: "Tu veux vivre comme un boss ? Grind comme un boss.", author: "Zoé 💖" },
   { text: "Le top 10 c'est pas un rêve, c'est une décision.", author: "Zoé 💖" },
   { text: "La différence entre toi et le top 1 ? Juste quelques clics.", author: "Zoé 💖" },
-  { text: "Get rich or die clicking.", author: "Zoé 💖" },
+  { text: "Deviens riche ou meurs en cliquant.", author: "Zoé 💖" },
   { text: "Ce mois-ci, c'est TON mois. Prends ce qui est à toi.", author: "Zoé 💖" },
   { text: "On ne compte pas les heures, on compte les billets.", author: "Zoé 💖" },
   { text: "Tout le monde veut le lifestyle. Personne veut le grind.", author: "Zoé 💖" },
-  { text: "I didn't get lucky. I earned it.", author: "Scarface" },
-  { text: "The world is yours.", author: "Tony Montana" },
-  { text: "First you get the money, then you get the power.", author: "Tony Montana" },
-  { text: "Don't get high on your own supply. Get high on your hustle.", author: "Zoé 💖" },
-  { text: "Money talks. Bullshit walks.", author: "El Patrón" },
+  { text: "J'ai pas eu de la chance. Je l'ai mérité.", author: "Scarface" },
+  { text: "Le monde est à toi.", author: "Tony Montana" },
+  { text: "D'abord tu prends l'argent, ensuite tu prends le pouvoir.", author: "Tony Montana" },
+  { text: "Défonce-toi pas avec ta propre came. Défonce-toi avec ton hustle.", author: "Zoé 💖" },
+  { text: "L'argent parle. Le reste, c'est du vent.", author: "El Patrón" },
   { text: "Un patron ne demande pas la permission. Il prend.", author: "Zoé 💖" },
   { text: "Les faibles comptent les jours. Les boss comptent les clics.", author: "Zoé 💖" },
   { text: "Soit tu bosses pour tes rêves, soit tu bosses pour ceux d'un autre.", author: "Zoé 💖" },
@@ -287,14 +287,15 @@ async function fetchAllLinks() {
   return links;
 }
 
-async function fetchMetrics(startDate) {
-  const params = { sort: '-button_clicks', limit: 100 };
-  if (startDate) {
-    params.start_date = startDate;
-    params.end_date = new Date().toISOString();
-  } else {
-    params.timeframe = 'allTime';
-  }
+async function fetchMetrics() {
+  // Toujours les 7 derniers jours
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const params = {
+    sort: '-button_clicks',
+    limit: 100,
+    start_date: sevenDaysAgo,
+    end_date: new Date().toISOString(),
+  };
 
   const metrics = [];
   let cursor = undefined;
@@ -372,12 +373,11 @@ function buildLeaderboardEmbeds(ranking) {
     const va = top10[i];
     const medal = medals[i] || `**${i + 1}.**`;
     const emoji = rankEmojis[i] || '▸';
-    const avg = (va.clicks / daysElapsed).toFixed(1);
     const bar = progressBar(va.clicks, topClicks, 15);
     const role = getRoleForClicks(va.clicks);
     const roleName = role ? role.name : 'Pas encore de rang';
 
-    desc += `${medal} **${va.name}** — **${va.clicks}** clics (${avg}/jour) ${emoji}\n`;
+    desc += `${medal} **${va.name}** — **${va.clicks}** clics ${emoji}\n`;
     desc += `┃ ${bar} ${roleName}\n\n`;
   }
 
@@ -390,18 +390,9 @@ function buildLeaderboardEmbeds(ranking) {
     })
     .setTimestamp();
 
-  if (resetDate) {
-    const daysLeft = Math.max(0, 14 - daysElapsed);
-    embed.addFields({
-      name: '📅 Période en cours',
-      value: `Jour **${daysElapsed}**/14 — ${daysLeft > 0 ? `**${daysLeft}** jours restants` : '⏰ Reset imminent !'}`,
-      inline: true,
-    });
-  }
-
   embed.addFields({
-    name: '🌍 Pays ciblés',
-    value: '🇺🇸 US · 🇬🇧 UK · 🇨🇦 CA',
+    name: '📅 Période',
+    value: '🔄 **7 derniers jours**',
     inline: true,
   });
 
@@ -680,7 +671,7 @@ async function updateLeaderboard() {
 
     // Fetch fresh data from GMS
     cachedLinks = await fetchAllLinks();
-    const metrics = await fetchMetrics(data.resetDate);
+    const metrics = await fetchMetrics();
     cachedRanking = aggregateByVA(cachedLinks, metrics);
 
     console.log(`📊 ${cachedRanking.length} VAs trouvés, top: ${cachedRanking[0]?.name} (${cachedRanking[0]?.clicks} clics)`);
@@ -905,7 +896,7 @@ client.on('interactionCreate', async (interaction) => {
     try {
       // Fetch fresh data
       cachedLinks = await fetchAllLinks();
-      const metrics = await fetchMetrics(loadData().resetDate);
+      const metrics = await fetchMetrics();
       cachedRanking = aggregateByVA(cachedLinks, metrics);
 
       const embeds = buildLeaderboardEmbeds(cachedRanking);
