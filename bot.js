@@ -898,12 +898,51 @@ client.on('interactionCreate', async (interaction) => {
   // /setupleaderboard (admin only) — force install leaderboard panel
   if (interaction.commandName === 'setupleaderboard') {
     await interaction.deferReply({ ephemeral: true });
-    // Clear old message ID so a fresh embed is posted
-    const data = loadData();
-    data.leaderboardMessageId = null;
-    saveData(data);
-    await updateLeaderboard();
-    await interaction.editReply({ content: '✅ Panneau leaderboard installé dans #leaderboard !' });
+    try {
+      // Fetch fresh data
+      cachedLinks = await fetchAllLinks();
+      const metrics = await fetchMetrics(loadData().resetDate);
+      cachedRanking = aggregateByVA(cachedLinks, metrics);
+
+      const lbChannel = interaction.guild.channels.cache.get(LEADERBOARD_CHANNEL_ID);
+      if (!lbChannel) {
+        // Try fetching it directly
+        try {
+          const fetched = await interaction.guild.channels.fetch(LEADERBOARD_CHANNEL_ID);
+          if (!fetched) {
+            await interaction.editReply({ content: `❌ Salon introuvable (ID: ${LEADERBOARD_CHANNEL_ID}). Vérifie l'ID.` });
+            return;
+          }
+          // Use fetched channel
+          const embeds = buildLeaderboardEmbeds(cachedRanking);
+          const msg = await fetched.send({ embeds });
+          const data = loadData();
+          data.leaderboardMessageId = msg.id;
+          saveData(data);
+          await interaction.editReply({ content: '✅ Panneau leaderboard installé !' });
+        } catch (fetchErr) {
+          await interaction.editReply({ content: `❌ Impossible d'accéder au salon: ${fetchErr.message}` });
+        }
+        return;
+      }
+
+      const embeds = buildLeaderboardEmbeds(cachedRanking);
+      // Delete old message if exists
+      const data = loadData();
+      if (data.leaderboardMessageId) {
+        try {
+          const oldMsg = await lbChannel.messages.fetch(data.leaderboardMessageId);
+          await oldMsg.delete();
+        } catch {} // ignore if already gone
+      }
+      const msg = await lbChannel.send({ embeds });
+      data.leaderboardMessageId = msg.id;
+      saveData(data);
+      await interaction.editReply({ content: '✅ Panneau leaderboard installé !' });
+    } catch (err) {
+      console.error('❌ setupleaderboard error:', err);
+      await interaction.editReply({ content: `❌ Erreur: ${err.message}` });
+    }
     return;
   }
 
