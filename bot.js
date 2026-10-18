@@ -694,23 +694,33 @@ async function updateLeaderboard() {
     // Update leaderboard channel
     const lbChannel = guild.channels.cache.get(LEADERBOARD_CHANNEL_ID);
     if (lbChannel) {
+      console.log(`📋 Mise à jour leaderboard dans #${lbChannel.name} (${LEADERBOARD_CHANNEL_ID})`);
       const embeds = buildLeaderboardEmbeds(cachedRanking);
 
+      let sent = false;
       if (data.leaderboardMessageId) {
         try {
           const msg = await lbChannel.messages.fetch(data.leaderboardMessageId);
           await msg.edit({ embeds });
-        } catch {
-          // Message deleted or not found, send new one
+          console.log(`✏️ Leaderboard édité (msg ${data.leaderboardMessageId})`);
+          sent = true;
+        } catch (e) {
+          console.log(`⚠️ Ancien message introuvable (${data.leaderboardMessageId}), envoi nouveau...`);
+          data.leaderboardMessageId = null;
+        }
+      }
+      if (!sent) {
+        try {
           const msg = await lbChannel.send({ embeds });
           data.leaderboardMessageId = msg.id;
           saveData(data);
+          console.log(`✅ Nouveau leaderboard envoyé (msg ${msg.id})`);
+        } catch (e) {
+          console.error(`❌ Impossible d'envoyer le leaderboard:`, e.message);
         }
-      } else {
-        const msg = await lbChannel.send({ embeds });
-        data.leaderboardMessageId = msg.id;
-        saveData(data);
       }
+    } else {
+      console.error(`❌ Salon leaderboard introuvable: ${LEADERBOARD_CHANNEL_ID}`);
     }
 
     // Update roles
@@ -784,6 +794,10 @@ async function registerCommands() {
     new SlashCommandBuilder()
       .setName('setupclicks')
       .setDescription('Configurer le bouton "Voir mes clics" dans ce salon')
+      .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+    new SlashCommandBuilder()
+      .setName('setupleaderboard')
+      .setDescription('Installer le panneau leaderboard dans le salon #leaderboard')
       .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
   ];
 
@@ -878,6 +892,18 @@ client.on('interactionCreate', async (interaction) => {
     saveData(data);
     await updateLeaderboard();
     await interaction.editReply({ content: '✅ Toutes les annonces de promotion ont été renvoyées !' });
+    return;
+  }
+
+  // /setupleaderboard (admin only) — force install leaderboard panel
+  if (interaction.commandName === 'setupleaderboard') {
+    await interaction.deferReply({ ephemeral: true });
+    // Clear old message ID so a fresh embed is posted
+    const data = loadData();
+    data.leaderboardMessageId = null;
+    saveData(data);
+    await updateLeaderboard();
+    await interaction.editReply({ content: '✅ Panneau leaderboard installé dans #leaderboard !' });
     return;
   }
 
