@@ -1,7 +1,7 @@
 const {
   Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder,
   ButtonBuilder, ButtonStyle, PermissionFlagsBits, REST, Routes,
-  SlashCommandBuilder
+  SlashCommandBuilder, AttachmentBuilder
 } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
@@ -225,6 +225,19 @@ function randomGif(clicks) {
 function randomGifTop() {
   const pool = TIER_GIFS.top;
   return pool[Math.floor(Math.random() * pool.length)];
+}
+
+// Fetch a GIF URL → AttachmentBuilder (Discord bots can't embed Tenor URLs directly)
+async function fetchGifAttachment(url, name = 'promo.gif') {
+  try {
+    const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const buf = Buffer.from(await res.arrayBuffer());
+    return new AttachmentBuilder(buf, { name });
+  } catch (e) {
+    console.error(`⚠️ GIF fetch failed (${url}):`, e.message);
+    return null;
+  }
 }
 
 function loadData() {
@@ -589,6 +602,7 @@ async function updateRoles(guild, ranking) {
       console.log(`🎉 Promotion: ${va.name} → ${targetRole.name} (avant: ${previousRoleName || 'aucun'})`);
 
       const gifUrl = randomGif(va.clicks);
+      const gifAttachment = await fetchGifAttachment(gifUrl);
 
       // ─── Annonce dans #discussion ───
       if (announceChannel) {
@@ -602,9 +616,12 @@ async function updateRoles(guild, ranking) {
           )
           .setColor(targetRole.color)
           .setTimestamp();
+        if (gifAttachment) promoEmbed.setImage('attachment://promo.gif');
 
         try {
-          await announceChannel.send({ content: gifUrl, embeds: [promoEmbed] });
+          const sendOpts = { embeds: [promoEmbed] };
+          if (gifAttachment) sendOpts.files = [gifAttachment];
+          await announceChannel.send(sendOpts);
           console.log(`✅ Annonce envoyée dans #${announceChannel.name}`);
         } catch (e) {
           console.error('❌ Erreur envoi annonce:', e.message);
@@ -642,9 +659,14 @@ async function updateRoles(guild, ranking) {
           .setDescription(persoMsg + `\n\n> 💬 *"${persoQuote.text}"* — ${persoQuote.author}`)
           .setColor(targetRole.color)
           .setTimestamp();
+        // Re-fetch GIF for perso channel (attachment is consumed after first send)
+        const persoGif = await fetchGifAttachment(gifUrl, 'promo.gif');
+        if (persoGif) persoEmbed.setImage('attachment://promo.gif');
 
         try {
-          await persoChannel.send({ content: gifUrl, embeds: [persoEmbed] });
+          const persoOpts = { embeds: [persoEmbed] };
+          if (persoGif) persoOpts.files = [persoGif];
+          await persoChannel.send(persoOpts);
           console.log(`✅ Message perso envoyé dans #${persoChannel.name}`);
         } catch (e) {
           console.error(`❌ Erreur envoi salon perso #${persoChannel.name}:`, e.message);
@@ -688,7 +710,11 @@ async function updateRoles(guild, ranking) {
             .setTimestamp();
 
           try {
-            await announceChannel.send({ content: randomGifTop(), embeds: [top1Embed] });
+            const top1Gif = await fetchGifAttachment(randomGifTop(), 'top1.gif');
+            if (top1Gif) top1Embed.setImage('attachment://top1.gif');
+            const top1Opts = { embeds: [top1Embed] };
+            if (top1Gif) top1Opts.files = [top1Gif];
+            await announceChannel.send(top1Opts);
             console.log(`👑 Annonce #1 envoyée pour ${va.name}`);
           } catch (e) {
             console.error('❌ Erreur annonce #1:', e.message);
