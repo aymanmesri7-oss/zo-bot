@@ -375,7 +375,7 @@ function buildLeaderboardEmbeds(ranking) {
     const avg = (va.clicks / daysElapsed).toFixed(1);
     const bar = progressBar(va.clicks, topClicks, 15);
     const role = getRoleForClicks(va.clicks);
-    const roleName = role ? role.name : '💵 Affamé';
+    const roleName = role ? role.name : 'Pas encore de rang';
 
     desc += `${medal} **${va.name}** — **${va.clicks}** clics (${avg}/jour) ${emoji}\n`;
     desc += `┃ ${bar} ${roleName}\n\n`;
@@ -444,7 +444,7 @@ function buildStatsEmbed(username, ranking) {
   const avg = (va.clicks / daysElapsed).toFixed(1);
   const currentRole = getRoleForClicks(va.clicks);
   const nextRole = getNextRole(va.clicks);
-  const roleName = currentRole ? currentRole.name : '💵 Affamé';
+  const roleName = currentRole ? currentRole.name : 'Pas encore de rang';
 
   let desc = '';
   desc += `## 📊 Tes stats, ${va.name} !\n\n`;
@@ -489,18 +489,56 @@ async function ensureRolesExist(guild) {
   const existingRoles = guild.roles.cache;
 
   for (const r of [...ROLES, ...TOP_ROLES.map(t => ({ name: t.name, color: t.color }))]) {
-    if (!existingRoles.find(er => er.name === r.name)) {
+    const existing = existingRoles.find(er => er.name === r.name);
+    if (!existing) {
       try {
         await guild.roles.create({
           name: r.name,
           color: r.color,
+          hoist: true,
           reason: 'Zoé Bot - Rôle Money auto',
         });
         console.log(`✅ Rôle créé: ${r.name}`);
       } catch (e) {
         console.error(`❌ Impossible de créer le rôle ${r.name}:`, e.message);
       }
+    } else if (!existing.hoist) {
+      try {
+        await existing.setHoist(true, 'Zoé Bot - Afficher séparément');
+      } catch (e) {
+        console.error(`⚠️ Impossible de hoist ${r.name}:`, e.message);
+      }
     }
+  }
+
+  // ── Ordonner les rôles : plus de clics = plus haut dans la hiérarchie ──
+  try {
+    await guild.roles.fetch(); // refresh cache
+    const botMember = await guild.members.fetchMe();
+    const botHighestPos = botMember.roles.highest.position;
+
+    // Tous les rôles du bot triés par clics (ascending) → position ascending
+    const allBotRoles = [
+      ...ROLES.map(r => ({ name: r.name, order: r.clicks })),
+      ...TOP_ROLES.map(t => ({ name: t.name, order: 10000 + (4 - t.rank) })), // top1 = 10003, top2 = 10002, top3 = 10001
+    ];
+    allBotRoles.sort((a, b) => a.order - b.order); // lowest clicks first = lowest position
+
+    const positions = [];
+    // Start at position 1 (just above @everyone which is 0)
+    for (let i = 0; i < allBotRoles.length; i++) {
+      const role = guild.roles.cache.find(r => r.name === allBotRoles[i].name);
+      if (role && role.position < botHighestPos) {
+        positions.push({ role: role.id, position: i + 1 });
+      }
+    }
+
+    if (positions.length > 0) {
+      await guild.roles.setPositions(positions);
+      console.log(`✅ ${positions.length} rôles réordonnés`);
+    }
+  } catch (e) {
+    console.error('⚠️ Impossible de réordonner les rôles:', e.message);
   }
 }
 
@@ -551,59 +589,59 @@ async function updateRoles(guild, ranking) {
         console.error(`Impossible d'ajouter le rôle ${targetRole.name} à ${va.name}:`, e.message);
         continue;
       }
+    }
 
-      // Announce promotion if it's a NEW role (not just re-assigned after restart)
-      if (previousRoleName !== targetRole.name && announceChannel) {
-        const quote = randomQuote();
-        const promoEmbed = new EmbedBuilder()
-          .setTitle('🎉 PROMOTION ! 🎉')
-          .setDescription(
-            `💰 ${member} est maintenant **${targetRole.name}** ! (**${va.clicks}+** clics)\n\n` +
-            `> 💬 *"${quote.text}"*\n> — ${quote.author}\n\n` +
-            `🔥 Qui sera le prochain à monter dans l'empire ?`
-          )
+    // Announce promotion if role changed (séparé de l'assignation)
+    if (previousRoleName !== targetRole.name && announceChannel) {
+      const quote = randomQuote();
+      const promoEmbed = new EmbedBuilder()
+        .setTitle('🎉 PROMOTION ! 🎉')
+        .setDescription(
+          `💰 ${member} est maintenant **${targetRole.name}** ! (**${va.clicks}+** clics)\n\n` +
+          `> 💬 *"${quote.text}"*\n> — ${quote.author}\n\n` +
+          `🔥 Qui sera le prochain à monter dans l'empire ?`
+        )
+        .setColor(targetRole.color)
+        .setImage(randomGif(va.clicks))
+        .setTimestamp();
+
+      try {
+        await announceChannel.send({ embeds: [promoEmbed] });
+      } catch (e) {
+        console.error('Erreur envoi annonce:', e.message);
+      }
+
+      // ─── Message perso dans le salon du VA ───
+      const PERSO_MESSAGES = [
+        `Yo ${member}, t'as grind comme un vrai et ça paye ! Tu es maintenant **${targetRole.name}** 🔥\nContinue comme ça, le sommet t'attend !`,
+        `${member} 👑 Tu es maintenant **${targetRole.name}** !\nT'es en train de construire ton empire, lâche rien !`,
+        `Big up ${member} ! Tu es maintenant **${targetRole.name}** 💰\nLes vrais reconnaissent les vrais. Continue le grind !`,
+        `${member}, tu es maintenant **${targetRole.name}** avec **${va.clicks}** clics 🚀\nT'es pas là pour rigoler, ça se voit !`,
+        `Ça monte, ça monte ! ${member} tu es maintenant **${targetRole.name}** 😈\nLe grind paie toujours. Prochain niveau en approche !`,
+      ];
+      const persoMsg = PERSO_MESSAGES[Math.floor(Math.random() * PERSO_MESSAGES.length)];
+      const persoQuote = randomQuote();
+
+      // Chercher le salon perso du VA (format: -username ou -username-)
+      const username = va.name.toLowerCase();
+      const persoChannel = guild.channels.cache.find(ch =>
+        ch.name === `-${username}` ||
+        ch.name === `-${username}-` ||
+        ch.name === username
+      );
+
+      if (persoChannel) {
+        const persoEmbed = new EmbedBuilder()
+          .setTitle('⬆️ Tu as monté de rang !')
+          .setDescription(persoMsg + `\n\n> 💬 *"${persoQuote.text}"* — ${persoQuote.author}`)
           .setColor(targetRole.color)
           .setImage(randomGif(va.clicks))
           .setTimestamp();
 
         try {
-          await announceChannel.send({ embeds: [promoEmbed] });
+          await persoChannel.send({ embeds: [persoEmbed] });
         } catch (e) {
-          console.error('Erreur envoi annonce:', e.message);
-        }
-
-        // ─── Message perso dans le salon du VA ───
-        const PERSO_MESSAGES = [
-          `Yo ${member}, t'as grind comme un vrai et ça paye ! Tu es maintenant **${targetRole.name}** 🔥\nContinue comme ça, le sommet t'attend !`,
-          `${member} 👑 Tu es maintenant **${targetRole.name}** !\nT'es en train de construire ton empire, lâche rien !`,
-          `Big up ${member} ! Tu es maintenant **${targetRole.name}** 💰\nLes vrais reconnaissent les vrais. Continue le grind !`,
-          `${member}, tu es maintenant **${targetRole.name}** avec **${va.clicks}** clics 🚀\nT'es pas là pour rigoler, ça se voit !`,
-          `Ça monte, ça monte ! ${member} tu es maintenant **${targetRole.name}** 😈\nLe grind paie toujours. Prochain niveau en approche !`,
-        ];
-        const persoMsg = PERSO_MESSAGES[Math.floor(Math.random() * PERSO_MESSAGES.length)];
-        const persoQuote = randomQuote();
-
-        // Chercher le salon perso du VA (format: -username ou -username-)
-        const username = va.name.toLowerCase();
-        const persoChannel = guild.channels.cache.find(ch =>
-          ch.name === `-${username}` ||
-          ch.name === `-${username}-` ||
-          ch.name === username
-        );
-
-        if (persoChannel) {
-          const persoEmbed = new EmbedBuilder()
-            .setTitle('⬆️ Tu as monté de rang !')
-            .setDescription(persoMsg + `\n\n> 💬 *"${persoQuote.text}"* — ${persoQuote.author}`)
-            .setColor(targetRole.color)
-            .setImage(randomGif(va.clicks))
-            .setTimestamp();
-
-          try {
-            await persoChannel.send({ embeds: [persoEmbed] });
-          } catch (e) {
-            console.error(`Erreur envoi salon perso ${persoChannel.name}:`, e.message);
-          }
+          console.error(`Erreur envoi salon perso ${persoChannel.name}:`, e.message);
         }
       }
     }
@@ -734,8 +772,15 @@ async function registerCommands() {
       .setDescription('Forcer la mise à jour du leaderboard')
       .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
     new SlashCommandBuilder()
+      .setName('leaderboard')
+      .setDescription('Afficher le classement des clics'),
+    new SlashCommandBuilder()
       .setName('stats')
       .setDescription('Voir tes clics'),
+    new SlashCommandBuilder()
+      .setName('forceannonces')
+      .setDescription('Renvoyer toutes les annonces de promotion')
+      .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
     new SlashCommandBuilder()
       .setName('setupclicks')
       .setDescription('Configurer le bouton "Voir mes clics" dans ce salon')
@@ -809,11 +854,30 @@ client.on('interactionCreate', async (interaction) => {
     return;
   }
 
+  // /leaderboard — afficher le classement
+  if (interaction.commandName === 'leaderboard') {
+    await interaction.deferReply({ ephemeral: true });
+    await updateLeaderboard();
+    await interaction.editReply({ content: '✅ Classement mis à jour ! Va voir dans #leaderboard' });
+    return;
+  }
+
   // /forceleaderboard (admin only)
   if (interaction.commandName === 'forceleaderboard') {
     await interaction.deferReply({ ephemeral: true });
     await updateLeaderboard();
     await interaction.editReply({ content: '✅ Leaderboard mis à jour !' });
+    return;
+  }
+
+  // /forceannonces (admin only) — vide le cache et renvoie toutes les annonces
+  if (interaction.commandName === 'forceannonces') {
+    await interaction.deferReply({ ephemeral: true });
+    const data = loadData();
+    data.roleCache = {};
+    saveData(data);
+    await updateLeaderboard();
+    await interaction.editReply({ content: '✅ Toutes les annonces de promotion ont été renvoyées !' });
     return;
   }
 
