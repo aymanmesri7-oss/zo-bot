@@ -330,7 +330,7 @@ async function fetchRecentMetrics() {
 // VAs dont on ignore les clics avant une certaine date
 // mampionona : on compte seulement à partir du 18 oct 2026
 const VA_START_DATES = {
-  'mampionona1993': '2026-10-18T00:00:00Z',
+  'mampionona1993': '2026-10-10T00:00:00Z',
 };
 
 // Agréger clics par VA (display_name)
