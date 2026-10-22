@@ -14,7 +14,7 @@ const GUILD_ID = process.env.GUILD_ID || '1559835788911583232';
 const LEADERBOARD_CHANNEL_ID = process.env.LEADERBOARD_CHANNEL_ID || '1559970786398175252';
 const ANNOUNCEMENT_CHANNEL_ID = process.env.ANNOUNCEMENT_CHANNEL_ID || '1559840179609534474';
 const CLICKS_CHANNEL_ID = process.env.CLICKS_CHANNEL_ID; // salon pour le bouton "voir mes clics"
-const UPDATE_INTERVAL = 30 * 60 * 1000; // 30 min
+const UPDATE_INTERVAL = 10 * 60 * 1000; // 10 min
 const DATA_FILE = path.join(__dirname, 'data.json');
 
 // ─── Rôles Money / Mafia / Démons / Dieux (paliers) ─────────
@@ -576,57 +576,8 @@ async function updateRoles(guild, ranking) {
         console.error(`❌ Salon annonce introuvable (ID: ${ANNOUNCEMENT_CHANNEL_ID})`);
       }
 
-      // ─── Message perso dans le salon du VA ───
-      const PERSO_MESSAGES = [
-        `# 🔥🔥🔥\n\nYO ${member} !!!\n\nT'AS GRIND COMME UN VRAI ET ÇA PAYE !\n\n✨ **${targetRole.name.toUpperCase()}** ✨\n\n💪💪 CONTINUE COMME ÇA, LE SOMMET T'ATTEND !`,
-        `# 👑👑👑\n\n${member} !!!\n\nTU ES MAINTENANT\n\n✨ **${targetRole.name.toUpperCase()}** ✨\n\n🔥 T'ES EN TRAIN DE CONSTRUIRE TON EMPIRE, LÂCHE RIEN !`,
-        `# 💰💰💰\n\nBIG UP ${member} !!!\n\nTU ES MAINTENANT\n\n✨ **${targetRole.name.toUpperCase()}** ✨\n\n🏆 LES VRAIS RECONNAISSENT LES VRAIS. CONTINUE LE GRIND !`,
-        `# 🚀🚀🚀\n\n${member} !!!\n\nTU ES MAINTENANT **${targetRole.name.toUpperCase()}** AVEC **${va.clicks} CLICS** !\n\n😤😤 T'ES PAS LÀ POUR RIGOLER, ÇA SE VOIT !`,
-        `# 😈😈😈\n\nÇA MONTE, ÇA MONTE !\n\n${member} TU ES MAINTENANT\n\n✨ **${targetRole.name.toUpperCase()}** ✨\n\n💎 LE GRIND PAIE TOUJOURS. PROCHAIN NIVEAU EN APPROCHE !`,
-      ];
-      const persoMsg = PERSO_MESSAGES[Math.floor(Math.random() * PERSO_MESSAGES.length)];
-      const persoQuote = randomQuote();
-
-      // Chercher le salon perso du VA — matching flexible
-      const username = va.name.toLowerCase().replace(/[^a-z0-9_]/g, '');
-      console.log(`🔍 Recherche salon perso pour "${va.name}" → normalized: "${username}"`);
-      const persoChannel = guild.channels.cache.find(ch => {
-        const chName = ch.name.toLowerCase();
-        return chName === `-${username}-` ||
-               chName === `-${username}` ||
-               chName === username ||
-               chName === `${username}-` ||
-               chName.includes(username);
-      });
-
-      if (persoChannel) {
-        const persoEmbed = new EmbedBuilder()
-          .setTitle('⬆️⬆️⬆️  TU AS MONTÉ DE RANG  ⬆️⬆️⬆️')
-          .setDescription(persoMsg + `\n\n━━━━━━━━━━━━━━━━━━━━━━\n\n> 💬 *"${persoQuote.text}"* — ${persoQuote.author}`)
-          .setColor(targetRole.color)
-          .setTimestamp();
-        // Re-load GIF for perso channel (attachment is consumed after first send)
-        const persoGif = loadGifAttachment(gifFile, 'promo.gif');
-        if (persoGif) persoEmbed.setImage('attachment://promo.gif');
-
-        try {
-          const persoOpts = { embeds: [persoEmbed] };
-          if (persoGif) persoOpts.files = [persoGif];
-          await persoChannel.send(persoOpts);
-          console.log(`✅ Message perso envoyé dans #${persoChannel.name}`);
-        } catch (e) {
-          console.error(`❌ Erreur envoi salon perso #${persoChannel.name}:`, e.message);
-        }
-      } else {
-        // Log tous les noms de salons pour debug
-        const allChannels = guild.channels.cache
-          .filter(ch => ch.type === 0)
-          .map(ch => ch.name)
-          .filter(n => n.includes('-'))
-          .slice(0, 30);
-        console.log(`⚠️ Salon perso non trouvé pour "${va.name}" (cherché: -${username}-, -${username}, ${username})`);
-        console.log(`📋 Salons avec tiret: ${allChannels.join(', ')}`);
-      }
+      // Petit délai entre chaque annonce pour pas tout envoyer d'un coup
+      await new Promise(r => setTimeout(r, 3000));
     }
 
     // Update cache
