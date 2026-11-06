@@ -12,18 +12,12 @@ const GMS_API_KEY = process.env.GMS_API_KEY;
 const GMS_API_BASE = process.env.GMS_API_BASE || 'https://api.getmysocial.com';
 const UPDATE_INTERVAL = 10 * 60 * 1000; // 10 min
 
-// ─── Serveurs ───
-const INSTA2_GROUP_ID = 'grp_6ae499bd3475fe25ae70c812';
+// ─── Serveur : HALO AGENCY uniquement ───
+const HALO_GROUP_ID = 'grp_6ae867dd31228574f145ee1d'; // groupe GetMySocial "HALO AGENCY"
 const SERVERS = {
-  // Halo Agency : catégorie Instagram 2
   '1566540447487099041': {
     dataFile: 'data-halo.json',
-    keepLink: l => l.group_id === INSTA2_GROUP_ID,
-  },
-  // INSTAGRAM come back : liens sans groupe (ungrouped)
-  '1566758699685515285': {
-    dataFile: 'data-comeback.json',
-    keepLink: l => !l.group_id,
+    keepLink: l => l.group_id === HALO_GROUP_ID,
   },
 };
 
@@ -111,24 +105,29 @@ const QUOTES = [
 const GIF_DIR = path.join(__dirname, 'gifs');
 
 const TIER_GIFS = {
+  // 5-20: Hustle / Money
   hustle: [
     'money.gif', 'money-1.gif', 'franklin-saint.gif', 'franklin-saint-walking-franklin-saint.gif',
     'made-by-auf.gif', 'mrlinemoverrr.gif', 'ad-laurent.gif',
   ],
+  // 25-50: Mafia / Boss / Gangster
   mafia: [
     'mafia-boss.gif', 'leo-angry-wolf.gif', 'oppenheimer-oppenheimer-movie.gif',
     'war-dogs-war-dogs-movie.gif', 'war-dogs-war-dogs-movie-1.gif', 'war-dogs-war-dogs-movie-2.gif',
     'efraim-war-dogs.gif', 'gngsta.gif', 'pablo-vibes.gif', 'keyvon-crawford-kilo-tray-ballas.gif',
     'cj-cj-gta.gif', 'gta-grand-theft-auto.gif', 'di-caprio-moi.gif', 'leonardo-dicaprio-laughing.gif',
   ],
+  // 75: Empire / Luxe / Succès
   empire: [
     'd9luxe.gif', 'd9luxe-1.gif', 'd9luxe-2.gif', 'd9luxe-3.gif',
     'elon-musk-dance.gif', 'elon-musk-tesla.gif', 'elon-musk-this-is.gif', 'titanic-titanic-movie.gif',
   ],
+  // 100-225: Anime Power / Démons
   power: [
     'goku-mad.gif', 'gohan-beast-gohan.gif', 'goku-dragon-ball-z.gif',
     'lf-ssjb-goku-grn-ssjb-goku.gif', 'naruto-naruto-uzumaki.gif', 'naruto.gif', 'dokkan-battle-top.gif',
   ],
+  // Célébration — mixé dans tous les paliers
   celebration: [
     'dance.gif', 'cat-dance.gif', 'cat-cat-dance.gif', 'jiggy-kid-dancing.gif',
     'mayombo-dancing.gif', 'mayombo-dancing-1.gif', 'mec-qui-danse-homme-danse.gif',
@@ -141,6 +140,7 @@ const TIER_GIFS = {
     'made-by-aur.gif', 'sticker-fortiktok.gif', 'triplet-tung-tung-tung-sahur.gif',
     'trash-vegan-comedy.gif', 'calculating-alan.gif', 'elon-musk-dance.gif',
   ],
+  // Top 3: les plus gros GIFs
   top: [
     'd9luxe-1.gif', 'goku-dragon-ball-z.gif', 'lf-ssjb-goku-grn-ssjb-goku.gif',
     'dokkan-battle-top.gif', 'gohan-beast-gohan.gif', 'jiggy-kid-dancing.gif',
@@ -153,12 +153,14 @@ function randomQuote() {
   return QUOTES[Math.floor(Math.random() * QUOTES.length)];
 }
 function randomGif(clicks) {
+  // Pick from tier + celebration pool (50/50 chance)
   let tier;
   if (clicks == null)         tier = 'hustle';
   else if (clicks < 25)       tier = 'hustle';
   else if (clicks < 75)       tier = 'mafia';
   else if (clicks < 100)      tier = 'empire';
   else                        tier = 'power';
+  // 50% chance to use celebration GIF instead
   const useCelebration = Math.random() < 0.5;
   const pool = useCelebration ? TIER_GIFS.celebration : TIER_GIFS[tier];
   return pool[Math.floor(Math.random() * pool.length)];
@@ -168,12 +170,19 @@ function randomGifTop() {
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
+// Load a local GIF file → AttachmentBuilder
 function loadGifAttachment(filename, attachName = 'promo.gif') {
   try {
     const filePath = path.join(GIF_DIR, filename);
-    if (!fs.existsSync(filePath)) return null;
+    if (!fs.existsSync(filePath)) {
+      console.error(`⚠️ GIF introuvable: ${filePath}`);
+      return null;
+    }
     return new AttachmentBuilder(filePath, { name: attachName });
-  } catch { return null; }
+  } catch (e) {
+    console.error(`⚠️ GIF load failed (${filename}):`, e.message);
+    return null;
+  }
 }
 
 function dataPath(guildId) {
@@ -200,12 +209,16 @@ function progressBar(current, max, length = 20) {
 
 function getRoleForClicks(clicks) {
   let role = null;
-  for (const r of ROLES) { if (clicks >= r.clicks) role = r; }
+  for (const r of ROLES) {
+    if (clicks >= r.clicks) role = r;
+  }
   return role;
 }
 
 function getNextRole(clicks) {
-  for (const r of ROLES) { if (clicks < r.clicks) return r; }
+  for (const r of ROLES) {
+    if (clicks < r.clicks) return r;
+  }
   return null;
 }
 
@@ -218,7 +231,10 @@ async function gmsRequest(endpoint, params = {}) {
   const res = await fetch(url.toString(), {
     headers: { 'Authorization': `Bearer ${GMS_API_KEY}` }
   });
-  if (!res.ok) throw new Error(`GMS API ${res.status}: ${await res.text()}`);
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`GMS API ${res.status}: ${text}`);
+  }
   return res.json();
 }
 
@@ -234,7 +250,9 @@ async function fetchAllLinks() {
 }
 
 async function fetchMetrics() {
+  // allTime — c'est le boss qui décide quand on reset
   const params = { sort: '-button_clicks', limit: 100, timeframe: 'allTime' };
+
   const metrics = [];
   let cursor = undefined;
   do {
@@ -247,13 +265,18 @@ async function fetchMetrics() {
   return metrics;
 }
 
+// Clics à soustraire du allTime pour certains VAs
+// mampionona avait 1767 clics avant le 10 oct 2026, on les ignore
 const VA_CLICK_OFFSET = {
   'mampionona1993': 1767,
 };
 
+// Agréger clics par VA (display_name)
 function aggregateByVA(links, metrics) {
   const linkToVA = {};
-  for (const link of links) linkToVA[link.id] = link.display_name;
+  for (const link of links) {
+    linkToVA[link.id] = link.display_name;
+  }
 
   const vaClicks = {};
   for (const m of metrics) {
@@ -262,8 +285,11 @@ function aggregateByVA(links, metrics) {
     vaClicks[va] = (vaClicks[va] || 0) + (m.button_clicks || 0);
   }
 
+  // Soustraire les clics avant la date de début pour certains VAs
   for (const [va, offset] of Object.entries(VA_CLICK_OFFSET)) {
-    if (vaClicks[va] !== undefined) vaClicks[va] = Math.max(0, vaClicks[va] - offset);
+    if (vaClicks[va] !== undefined) {
+      vaClicks[va] = Math.max(0, vaClicks[va] - offset);
+    }
   }
 
   return Object.entries(vaClicks)
@@ -273,20 +299,38 @@ function aggregateByVA(links, metrics) {
 
 // ─── Discord Bot ─────────────────────────────────────────────
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers, GatewayIntentBits.GuildMessages]
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.GuildMessages,
+  ]
 });
 
+
+// ─── Build leaderboard embed ─────────────────────────────────
 function buildLeaderboardEmbeds(ranking, guildId) {
   const quote = randomQuote();
   const top10 = ranking.slice(0, 10);
   const topClicks = top10[0]?.clicks || 1;
+  const data = loadData(guildId);
+  const resetDate = data.resetDate ? new Date(data.resetDate) : null;
+  const daysElapsed = resetDate
+    ? Math.max(1, Math.ceil((Date.now() - resetDate.getTime()) / 86400000))
+    : 14;
+
   const medals = ['🥇', '🥈', '🥉'];
   const rankEmojis = ['🔥', '⚡', '💪', '✨', '💎', '🌟', '⭐'];
 
-  let desc = '```\n╔══════════════════════════════════════╗\n║    💰 CLASSEMENT DE L\'EMPIRE 💰      ║\n╚══════════════════════════════════════╝\n```\n\n';
+  let desc = '';
+  desc += '```\n';
+  desc += '╔══════════════════════════════════════╗\n';
+  desc += '║    💰 CLASSEMENT DE L\'EMPIRE 💰      ║\n';
+  desc += '╚══════════════════════════════════════╝\n';
+  desc += '```\n\n';
 
   if (top10.length === 0) {
-    desc += '> Aucun clic enregistré pour cette période.\n> *Les rues sont vides... qui ose grind ?*\n';
+    desc += '> Aucun clic enregistré pour cette période.\n';
+    desc += '> *Les rues sont vides... qui ose grind ?*\n';
   }
 
   for (let i = 0; i < top10.length; i++) {
@@ -295,18 +339,28 @@ function buildLeaderboardEmbeds(ranking, guildId) {
     const emoji = rankEmojis[i] || '▸';
     const bar = progressBar(va.clicks, topClicks, 15);
     const role = getRoleForClicks(va.clicks);
-    desc += `${medal} **${va.name}** — **${va.clicks}** clics ${emoji}\n┃ ${bar} ${role ? role.name : 'Pas encore de rang'}\n\n`;
+    const roleName = role ? role.name : 'Pas encore de rang';
+
+    desc += `${medal} **${va.name}** — **${va.clicks}** clics ${emoji}\n`;
+    desc += `┃ ${bar} ${roleName}\n\n`;
   }
 
   const embed = new EmbedBuilder()
     .setTitle('💰 L\'EMPIRE — TOP 10 CLICS')
     .setDescription(desc)
     .setColor(0xFFD700)
-    .setFooter({ text: `💬 "${quote.text}" — ${quote.author}` })
+    .setFooter({
+      text: `💬 "${quote.text}" — ${quote.author}`,
+    })
     .setTimestamp();
 
-  embed.addFields({ name: '📅 Période', value: '♾️ **Depuis le début**', inline: true });
+  embed.addFields({
+    name: '📅 Période',
+    value: '♾️ **Depuis le début**',
+    inline: true,
+  });
 
+  // Second embed with motivation
   const motivEmbed = new EmbedBuilder()
     .setColor(0xFF4500)
     .setDescription('> 💰 **Chaque clic, c\'est un billet de plus. Chaque effort te rapproche du trône.**\n> *Les vrais patrons n\'abandonnent jamais !*');
@@ -314,79 +368,131 @@ function buildLeaderboardEmbeds(ranking, guildId) {
   return [embed, motivEmbed];
 }
 
+// ─── Build individual stats embed ────────────────────────────
 function buildStatsEmbed(username, ranking, guildId) {
   const quote = randomQuote();
   const data = loadData(guildId);
   const resetDate = data.resetDate ? new Date(data.resetDate) : null;
-  const daysElapsed = resetDate ? Math.max(1, Math.ceil((Date.now() - resetDate.getTime()) / 86400000)) : 14;
+  const daysElapsed = resetDate
+    ? Math.max(1, Math.ceil((Date.now() - resetDate.getTime()) / 86400000))
+    : 14;
 
+  // Find user in ranking (case-insensitive match on Discord username)
   const userLower = username.toLowerCase();
   const idx = ranking.findIndex(r => r.name.toLowerCase() === userLower);
 
   if (idx === -1) {
     return new EmbedBuilder()
       .setTitle('❌ Aucun lien trouvé')
-      .setDescription(`Je ne trouve pas de lien GetMySocial pour **${username}**.\n\nTon pseudo Discord doit être le même que ton nom sur GetMySocial.\nContacte un admin si c'est pas le cas.`)
+      .setDescription(
+        `Je ne trouve pas de lien GetMySocial pour **${username}**.\n\n` +
+        `Ton pseudo Discord doit être le même que ton nom sur GetMySocial.\n` +
+        `Contacte un admin si c'est pas le cas.`
+      )
       .setColor(0xFF0000);
   }
 
   const va = ranking[idx];
   const position = idx + 1;
+  const total = ranking.length;
   const avg = (va.clicks / daysElapsed).toFixed(1);
   const currentRole = getRoleForClicks(va.clicks);
   const nextRole = getNextRole(va.clicks);
+  const roleName = currentRole ? currentRole.name : 'Pas encore de rang';
 
-  let desc = `## 📊 Tes stats, ${va.name} !\n\n`;
-  desc += `🔢 **Clics total** : **${va.clicks}**\n📈 **Moyenne/jour** : **${avg}** clics\n🏅 **Rang** : ${currentRole ? currentRole.name : 'Pas encore de rang'}\n📍 **Position** : **#${position}** sur ${ranking.length}\n\n`;
+  let desc = '';
+  desc += `## 📊 Tes stats, ${va.name} !\n\n`;
+  desc += `🔢 **Clics total** : **${va.clicks}**\n`;
+  desc += `📈 **Moyenne/jour** : **${avg}** clics\n`;
+  desc += `🏅 **Rang** : ${roleName}\n`;
+  desc += `📍 **Position** : **#${position}** sur ${total}\n\n`;
 
   if (nextRole) {
-    desc += `${progressBar(va.clicks, nextRole.clicks, 20)}\n➡️ Prochain rang : **${nextRole.name}** (${nextRole.clicks} clics) — encore **${nextRole.clicks - va.clicks}** clics !\n\n`;
+    const remaining = nextRole.clicks - va.clicks;
+    const progress = progressBar(va.clicks, nextRole.clicks, 20);
+    desc += `${progress}\n`;
+    desc += `➡️ Prochain rang : **${nextRole.name}** (${nextRole.clicks} clics) — encore **${remaining}** clics !\n\n`;
   } else {
     desc += `♾️ **Tu as atteint le rang ultime ! L'Absolu !**\n\n`;
   }
 
-  if (position <= 3) desc += `> 🔥 **Tu es dans le TOP 3 ! Tu domines l'empire !**`;
-  else if (position <= 10) desc += `> ⚡ **Top 10 ! Tu es un vrai boss. Pousse encore pour le trône !**`;
-  else desc += `> 💪 **Encore ${(ranking[9]?.clicks || 0) - va.clicks} clics pour entrer dans le Top 10 ! Grind plus fort !**`;
+  // Motivation based on position
+  if (position <= 3) {
+    desc += `> 🔥 **Tu es dans le TOP 3 ! Tu domines l'empire !**`;
+  } else if (position <= 10) {
+    desc += `> ⚡ **Top 10 ! Tu es un vrai boss. Pousse encore pour le trône !**`;
+  } else {
+    const top10Clicks = ranking[9]?.clicks || 0;
+    const gap = top10Clicks - va.clicks;
+    desc += `> 💪 **Encore ${gap} clics pour entrer dans le Top 10 ! Grind plus fort !**`;
+  }
 
-  return new EmbedBuilder()
+  const embed = new EmbedBuilder()
     .setTitle(`💰 Statistiques de ${va.name}`)
     .setDescription(desc)
     .setColor(currentRole?.color || 0x5865F2)
     .setFooter({ text: `💬 "${quote.text}" — ${quote.author}` })
     .setTimestamp();
+
+  return embed;
 }
 
 // ─── Role management ─────────────────────────────────────────
 async function ensureRolesExist(guild) {
   const existingRoles = guild.roles.cache;
+
   for (const r of [...ROLES, ...TOP_ROLES.map(t => ({ name: t.name, color: t.color }))]) {
     const existing = existingRoles.find(er => er.name === r.name);
     if (!existing) {
       try {
-        await guild.roles.create({ name: r.name, color: r.color, hoist: true, reason: 'Zoé Bot - Rôle Money auto' });
-      } catch (e) { console.error(`❌ Impossible de créer le rôle ${r.name}:`, e.message); }
+        await guild.roles.create({
+          name: r.name,
+          color: r.color,
+          hoist: true,
+          reason: 'Zoé Bot - Rôle Money auto',
+        });
+        console.log(`✅ Rôle créé: ${r.name}`);
+      } catch (e) {
+        console.error(`❌ Impossible de créer le rôle ${r.name}:`, e.message);
+      }
     } else if (!existing.hoist) {
-      try { await existing.setHoist(true, 'Zoé Bot - Afficher séparément'); } catch {}
+      try {
+        await existing.setHoist(true, 'Zoé Bot - Afficher séparément');
+      } catch (e) {
+        console.error(`⚠️ Impossible de hoist ${r.name}:`, e.message);
+      }
     }
   }
 
+  // ── Ordonner les rôles : plus de clics = plus haut dans la hiérarchie ──
   try {
-    await guild.roles.fetch();
+    await guild.roles.fetch(); // refresh cache
     const botMember = await guild.members.fetchMe();
     const botHighestPos = botMember.roles.highest.position;
+
+    // Tous les rôles du bot triés par clics (ascending) → position ascending
     const allBotRoles = [
       ...ROLES.map(r => ({ name: r.name, order: r.clicks })),
-      ...TOP_ROLES.map(t => ({ name: t.name, order: 10000 + (4 - t.rank) })),
+      ...TOP_ROLES.map(t => ({ name: t.name, order: 10000 + (4 - t.rank) })), // top1 = 10003, top2 = 10002, top3 = 10001
     ];
-    allBotRoles.sort((a, b) => a.order - b.order);
+    allBotRoles.sort((a, b) => a.order - b.order); // lowest clicks first = lowest position
+
     const positions = [];
+    // Start at position 1 (just above @everyone which is 0)
     for (let i = 0; i < allBotRoles.length; i++) {
       const role = guild.roles.cache.find(r => r.name === allBotRoles[i].name);
-      if (role && role.position < botHighestPos) positions.push({ role: role.id, position: i + 1 });
+      if (role && role.position < botHighestPos) {
+        positions.push({ role: role.id, position: i + 1 });
+      }
     }
-    if (positions.length > 0) await guild.roles.setPositions(positions);
-  } catch (e) { console.error('⚠️ Impossible de réordonner les rôles:', e.message); }
+
+    if (positions.length > 0) {
+      await guild.roles.setPositions(positions);
+      console.log(`✅ ${positions.length} rôles réordonnés`);
+    }
+  } catch (e) {
+    console.error('⚠️ Impossible de réordonner les rôles:', e.message);
+  }
 }
 
 async function updateRoles(guild, ranking) {
@@ -394,86 +500,148 @@ async function updateRoles(guild, ranking) {
   const announceChannelId = data.announceChannelId;
   const announceChannel = announceChannelId && guild.channels.cache.get(announceChannelId);
   const allRoleNames = ROLES.map(r => r.name);
+  const topRoleNames = TOP_ROLES.map(r => r.name);
 
+  // ponytail: O(n*m) lookup, fine for ~30 VAs and ~15 roles
   for (let i = 0; i < ranking.length; i++) {
     const va = ranking[i];
     const targetRole = getRoleForClicks(va.clicks);
     if (!targetRole) continue;
 
+    // Find Discord member by username (case-insensitive)
     let member;
     try {
       const members = await guild.members.fetch({ query: va.name, limit: 5 });
-      member = members.find(m => m.user.username.toLowerCase() === va.name.toLowerCase() || m.displayName.toLowerCase() === va.name.toLowerCase());
+      member = members.find(m =>
+        m.user.username.toLowerCase() === va.name.toLowerCase() ||
+        m.displayName.toLowerCase() === va.name.toLowerCase()
+      );
     } catch { continue; }
     if (!member) continue;
 
+    // Current role in the hierarchy
     const previousRoleName = data.roleCache?.[va.name];
+
+    // Assign new click role, remove old ones
     const guildRoles = guild.roles.cache;
     const targetGuildRole = guildRoles.find(r => r.name === targetRole.name);
     if (!targetGuildRole) continue;
 
-    const rolesToRemove = member.roles.cache.filter(r => allRoleNames.includes(r.name) && r.name !== targetRole.name);
-    for (const [, role] of rolesToRemove) { try { await member.roles.remove(role); } catch {} }
-
-    if (!member.roles.cache.has(targetGuildRole.id)) {
-      try { await member.roles.add(targetGuildRole); } catch (e) { console.error(`Impossible d'ajouter le rôle ${targetRole.name} à ${va.name}:`, e.message); continue; }
+    // Remove all other click roles
+    const rolesToRemove = member.roles.cache.filter(
+      r => allRoleNames.includes(r.name) && r.name !== targetRole.name
+    );
+    for (const [, role] of rolesToRemove) {
+      try { await member.roles.remove(role); } catch {}
     }
 
-    if (previousRoleName !== targetRole.name) {
-      console.log(`🎉 Promotion: ${va.name} → ${targetRole.name}`);
-      const gifAttachment = loadGifAttachment(randomGif(va.clicks));
+    // Add new role if not already assigned
+    if (!member.roles.cache.has(targetGuildRole.id)) {
+      try {
+        await member.roles.add(targetGuildRole);
+      } catch (e) {
+        console.error(`Impossible d'ajouter le rôle ${targetRole.name} à ${va.name}:`, e.message);
+        continue;
+      }
+    }
 
+    // Announce promotion if role changed (séparé de l'assignation)
+    if (previousRoleName !== targetRole.name) {
+      console.log(`🎉 Promotion: ${va.name} → ${targetRole.name} (avant: ${previousRoleName || 'aucun'})`);
+
+      const gifFile = randomGif(va.clicks);
+      const gifAttachment = loadGifAttachment(gifFile);
+
+      // ─── Annonce dans #discussion ───
       if (announceChannel) {
         const quote = randomQuote();
         const promoEmbed = new EmbedBuilder()
           .setTitle('🔥🔥🔥  PROMOTION  🔥🔥🔥')
           .setDescription(
-            `# 💰💰💰\n\n${member} EST MAINTENANT\n\n## ✨ ${targetRole.name.toUpperCase()} ✨\n\n**${va.clicks}+ CLICS** 🏆🏆🏆\n\n━━━━━━━━━━━━━━━━━━━━━━\n\n> 💬 *"${quote.text}"*\n> — ${quote.author}\n\n━━━━━━━━━━━━━━━━━━━━━━\n\n🔥🔥 QUI SERA LE PROCHAIN À MONTER DANS L'EMPIRE ? 🔥🔥`
+            `# 💰💰💰\n\n` +
+            `${member} EST MAINTENANT\n\n` +
+            `## ✨ ${targetRole.name.toUpperCase()} ✨\n\n` +
+            `**${va.clicks}+ CLICS** 🏆🏆🏆\n\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+            `> 💬 *"${quote.text}"*\n> — ${quote.author}\n\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+            `🔥🔥 QUI SERA LE PROCHAIN À MONTER DANS L'EMPIRE ? 🔥🔥`
           )
-          .setColor(targetRole.color).setTimestamp();
+          .setColor(targetRole.color)
+          .setTimestamp();
         if (gifAttachment) promoEmbed.setImage('attachment://promo.gif');
+
         try {
           const sendOpts = { embeds: [promoEmbed] };
           if (gifAttachment) sendOpts.files = [gifAttachment];
           await announceChannel.send(sendOpts);
-        } catch (e) { console.error('❌ Erreur envoi annonce:', e.message); }
+          console.log(`✅ Annonce envoyée dans #${announceChannel.name}`);
+        } catch (e) {
+          console.error('❌ Erreur envoi annonce:', e.message);
+        }
+      } else {
+        console.error(`❌ Salon annonce pas configuré sur ${guild.name} — utilise /setupannonces`);
       }
+
+      // Petit délai entre chaque annonce pour pas tout envoyer d'un coup
       await new Promise(r => setTimeout(r, 3000));
     }
 
+    // Update cache
     if (!data.roleCache) data.roleCache = {};
     data.roleCache[va.name] = targetRole.name;
 
+    // ─── Top 1/2/3 roles + annonce spéciale #1 ───
     const previousTop1 = data.top1VA;
     for (const top of TOP_ROLES) {
       const topGuildRole = guildRoles.find(r => r.name === top.name);
       if (!topGuildRole) continue;
+
       if (i + 1 === top.rank) {
-        if (!member.roles.cache.has(topGuildRole.id)) { try { await member.roles.add(topGuildRole); } catch {} }
+        if (!member.roles.cache.has(topGuildRole.id)) {
+          try { await member.roles.add(topGuildRole); } catch {}
+        }
+        // Annonce spéciale quand quelqu'un prend la tête (#1)
         if (top.rank === 1 && previousTop1 !== va.name && announceChannel) {
           const top1Embed = new EmbedBuilder()
             .setTitle('👑👑👑  NOUVEAU NUMÉRO 1  👑👑👑')
-            .setDescription(`# 🏆🏆🏆\n\n🔥🔥 ${member} PREND LA\n\n## ✨ PREMIÈRE PLACE ✨\n\nAVEC **${va.clicks} CLICS** !!!\n\nC'EST LE NOUVEAU **${top.name.toUpperCase()}** DU SERVEUR !\n\n━━━━━━━━━━━━━━━━━━━━━━\n\n💪💪 QUI VA LE DÉTRÔNER ? LE GRIND CONTINUE... 💪💪`)
-            .setColor(0xFFD700).setTimestamp();
+            .setDescription(
+              `# 🏆🏆🏆\n\n` +
+              `🔥🔥 ${member} PREND LA\n\n` +
+              `## ✨ PREMIÈRE PLACE ✨\n\n` +
+              `AVEC **${va.clicks} CLICS** !!!\n\n` +
+              `C'EST LE NOUVEAU **${top.name.toUpperCase()}** DU SERVEUR !\n\n` +
+              `━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+              `💪💪 QUI VA LE DÉTRÔNER ? LE GRIND CONTINUE... 💪💪`
+            )
+            .setColor(0xFFD700)
+            .setTimestamp();
+
           try {
             const top1Gif = loadGifAttachment(randomGifTop(), 'top1.gif');
             if (top1Gif) top1Embed.setImage('attachment://top1.gif');
             const top1Opts = { embeds: [top1Embed] };
             if (top1Gif) top1Opts.files = [top1Gif];
             await announceChannel.send(top1Opts);
-          } catch {}
+            console.log(`👑 Annonce #1 envoyée pour ${va.name}`);
+          } catch (e) {
+            console.error('❌ Erreur annonce #1:', e.message);
+          }
           data.top1VA = va.name;
         }
       } else {
-        if (member.roles.cache.has(topGuildRole.id)) { try { await member.roles.remove(topGuildRole); } catch {} }
+        if (member.roles.cache.has(topGuildRole.id)) {
+          try { await member.roles.remove(topGuildRole); } catch {}
+        }
       }
     }
   }
+
   saveData(guild.id, data);
 }
 
 // ─── Update cycle ────────────────────────────────────────────
-const rankings = {};
+const rankings = {}; // classement par serveur
 
 function buildRankings(links, metrics) {
   for (const guildId of Object.keys(SERVERS)) {
@@ -485,12 +653,16 @@ async function updateLeaderboard() {
   try {
     console.log('🔄 Mise à jour du leaderboard...');
     buildRankings(await fetchAllLinks(), await fetchMetrics());
+
     for (const guildId of Object.keys(SERVERS)) {
       const guild = client.guilds.cache.get(guildId);
       if (!guild) { console.error('❌ Serveur non trouvé:', guildId); continue; }
-      try { await updateGuild(guild); } catch (e) { console.error(`❌ Erreur mise à jour ${guild.name}:`, e); }
+      try { await updateGuild(guild); }
+      catch (e) { console.error(`❌ Erreur mise à jour ${guild.name}:`, e); }
     }
-  } catch (e) { console.error('❌ Erreur mise à jour:', e); }
+  } catch (e) {
+    console.error('❌ Erreur mise à jour:', e);
+  }
 }
 
 async function updateGuild(guild) {
@@ -499,59 +671,110 @@ async function updateGuild(guild) {
   const data = loadData(guild.id);
   console.log(`📊 [${guild.name}] ${ranking.length} VAs, top: ${ranking[0]?.name} (${ranking[0]?.clicks} clics)`);
 
+  // Leaderboard
   const lbChannelId = data.leaderboardChannelId;
   let lbChannel = lbChannelId && (guild.channels.cache.get(lbChannelId) || await guild.channels.fetch(lbChannelId).catch(() => null));
   if (lbChannel) {
     const embeds = buildLeaderboardEmbeds(ranking, guild.id);
     let sent = false;
     if (data.leaderboardMessageId) {
-      try { const msg = await lbChannel.messages.fetch(data.leaderboardMessageId); await msg.edit({ embeds }); sent = true; } catch { data.leaderboardMessageId = null; }
+      try {
+        const msg = await lbChannel.messages.fetch(data.leaderboardMessageId);
+        await msg.edit({ embeds });
+        sent = true;
+      } catch {
+        data.leaderboardMessageId = null;
+      }
     }
     if (!sent) {
-      try { const msg = await lbChannel.send({ embeds }); data.leaderboardMessageId = msg.id; saveData(guild.id, data); } catch (e) { console.error(`❌ Impossible d'envoyer le leaderboard:`, e.message); }
+      try {
+        const msg = await lbChannel.send({ embeds });
+        data.leaderboardMessageId = msg.id;
+        saveData(guild.id, data);
+      } catch (e) {
+        console.error(`❌ Impossible d'envoyer le leaderboard:`, e.message);
+      }
     }
   } else {
-    console.log(`⏳ [${guild.name}] Leaderboard pas configuré — utilise /setupleaderboard`);
+    console.log(`⏳ [${guild.name}] Leaderboard pas configuré — utilise /setupleaderboard dans un salon`);
   }
 
+  // Rôles + annonces
   await ensureRolesExist(guild);
   await updateRoles(guild, ranking);
 
-  const clicksChannelId = data.clicksChannelId;
-  const clicksChannel = clicksChannelId && guild.channels.cache.get(clicksChannelId);
+  // Bouton "voir mes clics" (si salon configuré dans la config)
+  const clicksChannel = data.clicksChannelId && guild.channels.cache.get(data.clicksChannelId);
   if (clicksChannel) {
     const fresh = loadData(guild.id);
     const buttonEmbed = new EmbedBuilder()
       .setTitle('📊 Voir tes clics')
-      .setDescription('> Clique sur le bouton ci-dessous pour voir tes stats personnelles !\n\n> 🔢 **Total de clics** · 📈 **Moyenne/jour** · 🏅 **Ton rang** · 📍 **Ta position**')
+      .setDescription(
+        '> Clique sur le bouton ci-dessous pour voir tes stats personnelles !\n\n' +
+        '> 🔢 **Total de clics** · 📈 **Moyenne/jour** · 🏅 **Ton rang** · 📍 **Ta position**'
+      )
       .setColor(0x5865F2);
-    const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('view_clicks').setLabel('👀 Voir mes clics').setStyle(ButtonStyle.Primary));
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId('view_clicks').setLabel('👀 Voir mes clics').setStyle(ButtonStyle.Primary)
+    );
     const msg = fresh.clicksMessageId && await clicksChannel.messages.fetch(fresh.clicksMessageId).catch(() => null);
-    if (msg) { await msg.edit({ embeds: [buttonEmbed], components: [row] }); }
-    else { const newMsg = await clicksChannel.send({ embeds: [buttonEmbed], components: [row] }); fresh.clicksMessageId = newMsg.id; saveData(guild.id, fresh); }
+    if (msg) {
+      await msg.edit({ embeds: [buttonEmbed], components: [row] });
+    } else {
+      const newMsg = await clicksChannel.send({ embeds: [buttonEmbed], components: [row] });
+      fresh.clicksMessageId = newMsg.id;
+      saveData(guild.id, fresh);
+    }
   }
+
   console.log(`✅ [${guild.name}] Leaderboard mis à jour`);
 }
 
 // ─── Register slash commands ─────────────────────────────────
 async function registerCommands() {
   const commands = [
-    new SlashCommandBuilder().setName('reset').setDescription('Reset le leaderboard').setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
-    new SlashCommandBuilder().setName('forceleaderboard').setDescription('Forcer la mise à jour du leaderboard').setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
-    new SlashCommandBuilder().setName('leaderboard').setDescription('Afficher le classement des clics'),
-    new SlashCommandBuilder().setName('stats').setDescription('Voir tes clics'),
-    new SlashCommandBuilder().setName('forceannonces').setDescription('Renvoyer toutes les annonces de promotion').setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
-    new SlashCommandBuilder().setName('setupclicks').setDescription('Configurer le bouton "Voir mes clics" dans ce salon').setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
-    new SlashCommandBuilder().setName('setupannonces').setDescription('Les annonces de promotion seront envoyées dans ce salon').setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
-    new SlashCommandBuilder().setName('setupleaderboard').setDescription('Installer le panneau leaderboard dans ce salon').setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+    new SlashCommandBuilder()
+      .setName('reset')
+      .setDescription('Reset le leaderboard (nouvelle période de 2 semaines)')
+      .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+    new SlashCommandBuilder()
+      .setName('forceleaderboard')
+      .setDescription('Forcer la mise à jour du leaderboard')
+      .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+    new SlashCommandBuilder()
+      .setName('leaderboard')
+      .setDescription('Afficher le classement des clics'),
+    new SlashCommandBuilder()
+      .setName('stats')
+      .setDescription('Voir tes clics'),
+    new SlashCommandBuilder()
+      .setName('forceannonces')
+      .setDescription('Renvoyer toutes les annonces de promotion')
+      .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+    new SlashCommandBuilder()
+      .setName('setupclicks')
+      .setDescription('Configurer le bouton "Voir mes clics" dans ce salon')
+      .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+    new SlashCommandBuilder()
+      .setName('setupannonces')
+      .setDescription('Les annonces de promotion seront envoyées dans ce salon')
+      .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+    new SlashCommandBuilder()
+      .setName('setupleaderboard')
+      .setDescription('Installer le panneau leaderboard dans le salon #leaderboard')
+      .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
   ];
 
   const rest = new REST().setToken(DISCORD_TOKEN);
   for (const guildId of Object.keys(SERVERS)) {
     try {
-      await rest.put(Routes.applicationGuildCommands(client.user.id, guildId), { body: commands.map(c => c.toJSON()) });
+      await rest.put(Routes.applicationGuildCommands(client.user.id, guildId), {
+        body: commands.map(c => c.toJSON()),
+      });
       console.log(`✅ Commandes slash enregistrées sur ${guildId}`);
-    } catch (e) { console.error(`❌ Erreur enregistrement commandes ${guildId}:`, e.message); }
+    } catch (e) {
+      console.error(`❌ Erreur enregistrement commandes ${guildId}:`, e.message);
+    }
   }
 }
 
@@ -567,38 +790,61 @@ client.on('interactionCreate', async (interaction) => {
   const guildId = interaction.guildId;
   if (!SERVERS[guildId]) return;
   const ranking = rankings[guildId] || [];
-
+  // Button: view clicks
   if (interaction.isButton() && interaction.customId === 'view_clicks') {
     await interaction.deferReply({ ephemeral: true });
-    await interaction.editReply({ embeds: [buildStatsEmbed(interaction.user.username, ranking, guildId)] });
+    const username = interaction.user.username;
+    const embed = buildStatsEmbed(username, ranking, guildId);
+    await interaction.editReply({ embeds: [embed] });
     return;
   }
 
   if (!interaction.isChatInputCommand()) return;
 
+  // /stats
   if (interaction.commandName === 'stats') {
     await interaction.deferReply({ ephemeral: true });
-    await interaction.editReply({ embeds: [buildStatsEmbed(interaction.user.username, ranking, guildId)] });
+    const username = interaction.user.username;
+    const embed = buildStatsEmbed(username, ranking, guildId);
+    await interaction.editReply({ embeds: [embed] });
     return;
   }
 
+  // /reset (admin only)
   if (interaction.commandName === 'reset') {
     const data = loadData(guildId);
     data.resetDate = new Date().toISOString();
     data.roleCache = {};
     saveData(guildId, data);
-    await interaction.reply({ embeds: [new EmbedBuilder().setTitle('🔄 Leaderboard Reset !').setDescription(`**Nouvelle période lancée !**\n\n> 💸 Les compteurs repartent à zéro.\n> 👑 Que le vrai patron se lève !\n\n📅 Début : <t:${Math.floor(Date.now() / 1000)}:F>`).setColor(0x2ECC71)] });
+
+    await interaction.reply({
+      embeds: [
+        new EmbedBuilder()
+          .setTitle('🔄 Leaderboard Reset !')
+          .setDescription(
+            '**Nouvelle période de 2 semaines lancée !**\n\n' +
+            '> 💸 Les compteurs repartent à zéro.\n' +
+            '> 👑 Que le vrai patron se lève !\n\n' +
+            `📅 Début : <t:${Math.floor(Date.now() / 1000)}:F>`
+          )
+          .setColor(0x2ECC71)
+      ]
+    });
+
+    // Force refresh
     setTimeout(updateLeaderboard, 2000);
     return;
   }
 
+  // /leaderboard — afficher le classement
   if (interaction.commandName === 'leaderboard') {
     await interaction.deferReply({ ephemeral: true });
     await updateLeaderboard();
-    await interaction.editReply({ content: '✅ Classement mis à jour !' });
+    await interaction.editReply({ content: '✅ Classement mis à jour ! Va voir dans #leaderboard' });
     return;
   }
 
+  // /forceleaderboard (admin only)
   if (interaction.commandName === 'forceleaderboard') {
     await interaction.deferReply({ ephemeral: true });
     await updateLeaderboard();
@@ -606,6 +852,7 @@ client.on('interactionCreate', async (interaction) => {
     return;
   }
 
+  // /forceannonces (admin only) — vide le cache et renvoie toutes les annonces
   if (interaction.commandName === 'forceannonces') {
     await interaction.deferReply({ ephemeral: true });
     const data = loadData(guildId);
@@ -616,21 +863,32 @@ client.on('interactionCreate', async (interaction) => {
     return;
   }
 
+  // /setupleaderboard (admin only) — install leaderboard panel in THIS channel
   if (interaction.commandName === 'setupleaderboard') {
     await interaction.deferReply({ ephemeral: true });
     try {
+      // Fetch fresh data
       buildRankings(await fetchAllLinks(), await fetchMetrics());
+
       const embeds = buildLeaderboardEmbeds(rankings[guildId], guildId);
+      // Send in the channel where the command was used
       const msg = await interaction.channel.send({ embeds });
+
+      // Save this channel as the new leaderboard channel + message ID
       const data = loadData(guildId);
       data.leaderboardMessageId = msg.id;
       data.leaderboardChannelId = interaction.channel.id;
       saveData(guildId, data);
+
       await interaction.editReply({ content: '✅ Panneau leaderboard installé dans ce salon !' });
-    } catch (err) { await interaction.editReply({ content: `❌ Erreur: ${err.message}` }); }
+    } catch (err) {
+      console.error('❌ setupleaderboard error:', err);
+      await interaction.editReply({ content: `❌ Erreur: ${err.message}` });
+    }
     return;
   }
 
+  // /setupclicks (admin only) — setup the clicks button in current channel
   if (interaction.commandName === 'setupannonces') {
     const data = loadData(guildId);
     data.announceChannelId = interaction.channel.id;
@@ -643,17 +901,38 @@ client.on('interactionCreate', async (interaction) => {
     const data = loadData(guildId);
     const buttonEmbed = new EmbedBuilder()
       .setTitle('📊 Voir tes clics')
-      .setDescription('> Clique sur le bouton ci-dessous pour voir tes stats personnelles !\n\n> 🔢 **Total de clics** · 📈 **Moyenne/jour** · 🏅 **Ton rang** · 📍 **Ta position**\n\n> 💰 *Chaque clic te rapproche du trône !*')
+      .setDescription(
+        '> Clique sur le bouton ci-dessous pour voir tes stats personnelles !\n\n' +
+        '> 🔢 **Total de clics** · 📈 **Moyenne/jour** · 🏅 **Ton rang** · 📍 **Ta position**\n\n' +
+        '> 💰 *Chaque clic te rapproche du trône !*'
+      )
       .setColor(0x5865F2);
-    const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('view_clicks').setLabel('👀 Voir mes clics').setStyle(ButtonStyle.Primary));
+
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId('view_clicks')
+        .setLabel('👀 Voir mes clics')
+        .setStyle(ButtonStyle.Primary)
+    );
+
     const msg = await interaction.channel.send({ embeds: [buttonEmbed], components: [row] });
     data.clicksMessageId = msg.id;
+    data.clicksChannelId = interaction.channel.id;
     saveData(guildId, data);
+
     await interaction.reply({ content: '✅ Bouton configuré !', ephemeral: true });
     return;
   }
 });
 
-if (!DISCORD_TOKEN) { console.error('❌ DISCORD_TOKEN manquant !'); process.exit(1); }
-if (!GMS_API_KEY) { console.error('❌ GMS_API_KEY manquant !'); process.exit(1); }
+// ─── Start ───────────────────────────────────────────────────
+if (!DISCORD_TOKEN) {
+  console.error('❌ DISCORD_TOKEN manquant !');
+  process.exit(1);
+}
+if (!GMS_API_KEY) {
+  console.error('❌ GMS_API_KEY manquant !');
+  process.exit(1);
+}
+
 client.login(DISCORD_TOKEN);
